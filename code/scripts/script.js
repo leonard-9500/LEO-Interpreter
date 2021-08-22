@@ -218,6 +218,180 @@ class Button
 
 class LeoInterpreter
 {
+	constructor()
+	{
+		this.dev = true;
+		// The memory that holds all instructions
+		this.memory = new Array(256).fill(0);
+		// How many lines of code are there after loading is finished.
+		this.memoryNumLines = 0;
+		// Memory that holds all user-defined variables.
+		// User-defined variable names and their values
+		this.UVV = new Map();
+		// User-defined variable names and their type, such as "INT" or later "STRING" and "FLOAT"
+		this.UVT = new Map();
+		//this.UV = [];
+		this.PC = 0;
+		this.programStartAddress = 0;
+		this.programEndAddress = 0;
+		// The output string of the interpreter.
+		this.console = new String();
+		this.tokenDefinition = new Map();
+		this.tokenDefinition.set();
+		this.tokenDefinition = ["ADD", /\[s]+/,
+						 "SUB",
+						 "MUL",
+						 "DIV",
+						 "INT", function(varName, varVal) { this.UV.set(varName, varVal) },
+						 "SET",
+						 "PRINT",
+						 "CLS",
+						 "GOTO",
+						 "FUNC",
+						 "//", "/\s*\/{2}/",
+						 ";"];
+		this.instruction = new Map();
+		//this.instruction.set(/(i)[add]\s*\w*\,\s*/, "ADD");
+	}
+
+	execute(cycles)
+	{
+		while (cycles > 0)
+		{
+			if (this.dev)
+			{
+				console.log("Executing line " + this.PC + ".\n");
+			}
+
+			//let line = this.tokenize(this.memory[this.PC]);
+			let instruction = this.tokenize(this.memory[this.PC]);
+
+			let token = instruction[0];
+			console.log(token);
+
+			switch(token.toUpperCase())
+			{
+				case "ADD":
+					{
+					}
+					break;
+				case "INT":
+					{
+						let rInt = /^[0-9]+$/;
+						// Name must start with any letter a-z upper or lower case or an under score and may also have digit anywhere except at the beginning.
+						// Name may have a-z, A-Z, 0-9 and _. The first letter may not be _
+						let rName = /^[a-z|A-z|\_]+[a-z|A-Z|0-9|\_]*$/;///[a-z*|A-Z*|\_*]\d*/;
+
+						// If supplied variable name only has alphanumeric characters and supplied value is only a digit (as opposed to letters)
+						if (rName.test(instruction[1]))
+						{
+							if (rInt.test(instruction[2]))
+							{
+								// Store int name and value in map
+								this.UVV.set(instruction[1], instruction[2]);
+								// Store int name with associated type in map
+								this.UVT.set(instruction[1], "INT");
+							}
+							else
+							{
+								if (this.dev) {console.warn("Supplied variable value " + instruction[2] + " is invalid.\n")};
+							}
+						}
+						else
+						{
+							if (this.dev) {console.warn("Supplied variable name " + instruction[1] + " is invalid.\n")};
+						}
+						this.movePC(1);
+					}
+				default:
+					break;
+			}
+
+			cycles--;
+		}
+	}
+
+	// Move the Program Counter forwards (+n) or backwards (-n).
+	movePC(n)
+	{
+		if (this.PC+n < this.programEndAddress)
+		{
+			this.PC += n;
+		}
+		else if (this.PC+n == this.programEndAddress)
+		{
+			this.PC == this.programEndAddress
+		}
+	}
+
+	parse()
+	{
+	}
+
+	tokenize(line)
+	{
+		// Remove any "," and split according to white space.
+		//line = line.toString().replace(/\,/, "").split(/\s|\,/);
+		line = line.toString().replace(/\,/, "").split(/\s|\,/);
+		console.log("Tokenized line to: " + line + "\n");
+		return line;
+	}
+
+	load(s)
+	{
+		// Create array of lines
+		let line = s.split("\n");
+
+		// Remove empty lines or lines that have white space or that have white space followed by //
+		// So this will not remove "  int x, 5 // A comment"
+		for (let i = 0; i < line.length; i++)
+		{
+			// If lines is empty or starts with any number of whitespace followed by //
+			let commentRegExp = /^[\s|\/]*\/{2}.*/;///[\s]*\/{2}.*/;
+			if (line[i] == null || line[i] == "" || commentRegExp.test(line[i]))
+			{
+				line.splice(i, 1);
+				i--;
+			}
+		}
+
+		// Copy lines into memory. One line per memory address
+		for (let i = 0; i < line.length; i++)
+		{
+			// Remove any preceding whitespace. so "   int x, 5" becomes "int x, 5"
+			let c = line[i].replace(/\s*/, "");
+			// Remove and white space right before a comment and the following characters.
+			this.memory[i] = c.replace(/\s*\/{2}.*/, "");
+		}
+		this.memoryNumLines = line.length;
+		this.programEndAddress = line.length-1;
+
+		console.log("Number of lines loaded into memory: " + this.memoryNumLines + "\n");
+		console.log(line);
+
+		if (this.dev)
+		{
+			console.log("Loaded code into memory.\n");
+			for (let i = 0; i < this.memory.length; i++)
+			{
+				if (this.memory[i] != null && this.memory[i] != 0)
+				{
+					console.log("Line " + (i+1) + " " + this.memory[i]);
+				}
+			}
+		}
+	}
+
+	reset()
+	{
+		// The memory that holds all instructions
+		this.memory = new Array(256).fill(0);
+		// Memory that holds all user-defined variables.
+		this.UV = new Map();
+		this.PC = 0;
+		// The output string of the interpreter.
+		this.console = new String();
+	}
 }
 
 /* Function definitions */
@@ -228,6 +402,17 @@ function getRandomIntInclusive(min, max)
     // The maximum and minimum are inclusive
     return Math.floor(Math.random() * (max - min + 1) + min);
 }
+
+let code = "";
+code += '// Test Program\n';
+code += '  int x, f // An indented comment\n';
+code += 'print "Hello World!"\n';
+code += 'let x, 5\n';
+code += 'add x, 2\n';
+code += 'print x\n';
+let interpreter = new LeoInterpreter;
+interpreter.load(code);
+interpreter.execute(5);
 
 // Time variables
 let tp1 = Date.now();
