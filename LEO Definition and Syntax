@@ -14,6 +14,7 @@ SET
 PRINT
 CLS
 GOTO
+//
 
 // ADD THE SECOND VALUE TO THE FIRST VALUE AND STORE THE RESULT IN THE FIRST VARIABLE. SO ADD 5, 2 = 7
 ADD X|V, X|V
@@ -35,3 +36,6 @@ PRINT X|V|S
 GOTO X|V
 // CLEAR THE SCREEN
 CLS
+
+// "//" starts a single-line comment. Any code following this keyword is omitted for this line.
+// Any text can go in here.
