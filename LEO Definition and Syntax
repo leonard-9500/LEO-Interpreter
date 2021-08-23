@@ -15,8 +15,10 @@ PRINT
 CLS
 GOTO
 FUNC
+
 //
 $
+The keywords "//" gets removed upon loading the code.
 
 // ADD THE SECOND VALUE TO THE FIRST VALUE AND STORE THE RESULT IN THE FIRST VARIABLE. SO ADD 5, 2 = 7
 ADD X|V, X|V
