@@ -12,6 +12,26 @@
 const SCREEN_WIDTH = 1280;
 const SCREEN_HEIGHT = 720;
 
+let texteditor = document.getElementById("texteditor");
+let textoutput = document.getElementById("textoutput");
+let runcode = document.getElementById("runcode");
+
+// Wait for the document to be completely loaded before attaching any event listeners to the HTML elements. */
+window.addEventListener("load", function()
+{
+	console.log("Page has been fully loaded.\n");
+	if (runcode)
+	{
+		runcode.addEventListener("click", function()
+		{
+			console.log("Run program.\n");
+			interpreter.reset();
+			interpreter.load(texteditor.value);
+			interpreter.isExecuting = true;
+		}, false);
+	}
+});
+
 /* Audio Object Definitions */
 let audioButtonPressed = new Audio("audio/audioButtonPressed.mp3");
 let audioButtonPressedIsReady = false;
@@ -221,6 +241,7 @@ class LeoInterpreter
 	constructor()
 	{
 		this.dev = true;
+		this.isExecuting = false;
 		// The memory that holds all instructions
 		this.memory = new Array(256).fill(0);
 		// How many lines of code are there after loading is finished.
@@ -250,6 +271,13 @@ class LeoInterpreter
 						 "FUNC",
 						 "//", "/\s*\/{2}/",
 						 ";"];
+		this.test = ["ADD", "INT"||"FLOAT"||"STRING"];
+		this.rules = {"I" : ["K", "W", ""]};
+		// INSTRUCTION -> KEYWORD VARIABLE|VALUE VARIABLE|VALUE|NONE
+		// KEYWORD -> ADD | SUB | MUL | DIV | INT | SET | PRINT | CLS | GOTO | FUNC
+		// VARIABLE -> NAME + VALUE + TYPE
+		// NAME -> 
+		//console.log(this.test);
 		this.instruction = new Map();
 		//this.instruction.set(/(i)[add]\s*\w*\,\s*/, "ADD");
 	}
@@ -296,7 +324,18 @@ class LeoInterpreter
 								// Set a to value of a+b only if their types match.
 								if (this.UVT.get(a) == this.UVT.get(b))
 								{
-									this.UVV.set(a, this.UVV.get(a)+this.UVV.get(b))
+									if (this.UVT.get(a) == "INT")
+									{
+										this.UVV.set(a, parseInt(this.UVV.get(a)) + parseInt(this.UVV.get(b)));
+									}
+									else if (this.UVT.get(a) == "FLOAT")
+									{
+										this.UVV.set(a, parseFloat(this.UVV.get(a)) + parseFloat(this.UVV.get(b)));
+									}
+									else if (this.UVT.get(a) == "STRING")
+									{
+										this.UVV.set(a, this.UVV.get(a).toString() + this.UVV.get(b).toString());
+									}
 								}
 								// Their types don't match so try automatic/implicit conversion.
 								else
@@ -346,7 +385,7 @@ class LeoInterpreter
 									// b is of type INT.
 									if (rInt.test(b))
 									{
-										// Set a to value of a + b floored.
+										// Set a to value of a + b.
 										this.UVV.set(a, parseInt(this.UVV.get(a)) + parseInt(b));
 									}
 									// b is of type FLOAT.
@@ -372,7 +411,7 @@ class LeoInterpreter
 									else if (rFloat.test(b))
 									{
 										// Set a to value of a + b floored.
-										this.UVV.set(a, parseInt(this.UVV.get(a)) + Math.floor(parseFloat(b)));
+										this.UVV.set(a, parseInt(this.UVV.get(a)) + parseFloat(b));
 									}
 								}
 								// a is of type STRING.
@@ -416,35 +455,39 @@ class LeoInterpreter
 						// Name may have a-z, A-Z, 0-9 and _. The first letter may not be _
 						let rName = /^[a-z|A-z|\_]+[a-z|A-Z|0-9|\_]*$/;///[a-z*|A-Z*|\_*]\d*/;
 
+						// A user-defined variable. e.g. x
+						let a = instruction[1].toString();
+						// A user-defined variable or a literal. e.g. 5 or $Hello
+						let b = instruction[2].toString();
+
 						// If supplied variable name only has alphanumeric characters and supplied value is only a digit (as opposed to letters)
-						if (rName.test(instruction[1]))
+						if (rName.test(a))
 						{
-							let s = instruction[1].toString();
 							// Only create variable with that name if it hasn't been created before
-							if (this.UVV.has(s) != true)
+							if (this.UVV.has(a) != true)
 							{
-								if (rInt.test(instruction[2]))
+								if (rInt.test(b))
 								{
 									// Store int name and value in map
-									this.UVV.set(instruction[1], instruction[2]);
+									this.UVV.set(a, b);
 									// Store int name with associated type in map
-									this.UVT.set(instruction[1], "INT");
+									this.UVT.set(a, "INT");
 								}
 								else
 								{
-									if (this.dev) {console.warn("Supplied variable value " + instruction[2] + " is invalid.\n")};
+									if (this.dev) {console.warn("Supplied variable value " + b + " is invalid.\n")};
 								}
 							}
 							// Variable with that name already exists
 							else
 							{
-								if (this.dev) {console.warn("Variable " + s + " already exists.\n")};
+								if (this.dev) {console.warn("Variable " + a + " already exists.\n")};
 							}
 						}
 						// Variable name is invalid
 						else
 						{
-							if (this.dev) {console.warn("Supplied variable name " + instruction[1] + " is invalid.\n")};
+							if (this.dev) {console.warn("Supplied variable name " + a + " is invalid.\n")};
 						}
 						this.movePC(1);
 					}
@@ -565,25 +608,34 @@ class LeoInterpreter
 				case "PRINT":
 					{
 						let uds = instruction[1].toString();
-
+						let s;
 						// It's a literal string
 						if (uds[0] == "$")
 						{
 							// Remove first char
-							let s = uds.substring(1);
-							this.console += s;
-							console.log("Wrote " + s + " to the console.\n");
+							s = uds.substring(1);
 						}
 						// It's a user-defined variable
 						else if (this.UVV.has(uds))
 						{
-							let s = this.UVV.get(uds);
-							this.console += s;
-							console.log("Wrote " + s + " to the console.\n");
+							s = this.UVV.get(uds);
 						}
+
+						this.console += s;
+						console.log("Wrote " + s + " to the console.\n");
+						/*
 						else
 						{
 						}
+						*/
+
+						let text = this.console;
+						// Replace all occurrences of "\n" with "\r\n". Don't replace any "\n" that are preceded by "\". So don't replace "\\n"
+						text = text.replace(/(?<!\\)\\n/g, "\r\n"); //&#013;&#010; \r\n
+						// Replace all escaped "\n" with "\n". So "\\n" becomes "\n".
+						// The first "\" in the replace functions escapes the second "\" before the "n".
+						text = text.replace(/\\\\n/g, "\\n");
+						textoutput.value = text;
 						this.movePC(1);
 					}
 					break;
@@ -604,7 +656,6 @@ class LeoInterpreter
 				default:
 					break;
 			}
-
 			cycles--;
 		}
 	}
@@ -612,14 +663,27 @@ class LeoInterpreter
 	// Move the Program Counter forwards (+n) or backwards (-n).
 	movePC(n)
 	{
+		this.PC += n;
+		if (this.PC > this.programEndAddress)
+		{
+			if (this.dev) { console.log("Program Counter out of bounds.\n"); };
+			this.isExecuting = false;
+		}
+		/*
 		if (this.PC+n < this.programEndAddress)
 		{
 			this.PC += n;
 		}
 		else if (this.PC+n == this.programEndAddress)
 		{
-			this.PC == this.programEndAddress
+			this.PC == this.programEndAddress;
 		}
+		// The last line of code has been executed.
+		else if (this.PC == this.programEndAddress)
+		{
+			this.isExecuting = false;
+		}
+		*/
 	}
 
 	parse()
@@ -698,11 +762,21 @@ class LeoInterpreter
 
 	reset()
 	{
+		this.dev = true;
+		this.isExecuting = false;
 		// The memory that holds all instructions
 		this.memory = new Array(256).fill(0);
+		// How many lines of code are there after loading is finished.
+		this.memoryNumLines = 0;
 		// Memory that holds all user-defined variables.
-		this.UV = new Map();
+		// User-defined variable names and their values
+		this.UVV = new Map();
+		// User-defined variable names and their type, such as "INT" or later "STRING" and "FLOAT"
+		this.UVT = new Map();
+		//this.UV = [];
 		this.PC = 0;
+		this.programStartAddress = 0;
+		this.programEndAddress = 0;
 		// The output string of the interpreter.
 		this.console = new String();
 	}
@@ -721,13 +795,14 @@ let code = "";
 code += '// Test Program\n';
 code += '  int x 4	 // An indented comment\n';
 code += 'print $Hello World!\n';
-code += 'add x 5\n';
+code += 'add x 1\n';
 code += 'print x\n';
-code += 'add x 2\n';
+code += 'int y 5\n';
+code += 'add x y\n';
 code += 'print x\n';
 let interpreter = new LeoInterpreter;
-interpreter.load(code);
-interpreter.execute(5);
+//interpreter.load(texteditor.value);
+//interpreter.execute(6);
 
 // Time variables
 let tp1 = Date.now();
@@ -743,6 +818,11 @@ window.main = function ()
     elapsedTime = tp2 - tp1;
     //console.log("elapsedTime:" + elapsedTime + "\n");
     tp1 = tp2;
+
+	if (interpreter.isExecuting)
+	{
+		interpreter.execute(1);
+	}
 }
 
 // Start the game loop
