@@ -275,8 +275,21 @@ class LeoInterpreter
 					{
 					}
 					break;
+				case "SUB":
+					{
+					}
+					break;
+				case "MUL":
+					{
+					}
+					break;
+				case "DIV":
+					{
+					}
+					break;
 				case "INT":
 					{
+						// Int must only contain digits from 0-9
 						let rInt = /^[0-9]+$/;
 						// Name must start with any letter a-z upper or lower case or an under score and may also have digit anywhere except at the beginning.
 						// Name may have a-z, A-Z, 0-9 and _. The first letter may not be _
@@ -285,24 +298,147 @@ class LeoInterpreter
 						// If supplied variable name only has alphanumeric characters and supplied value is only a digit (as opposed to letters)
 						if (rName.test(instruction[1]))
 						{
-							if (rInt.test(instruction[2]))
+							let s = instruction[1].toString();
+							// Only create variable with that name if it hasn't been created before
+							if (this.UVV.has(s) != true)
 							{
-								// Store int name and value in map
-								this.UVV.set(instruction[1], instruction[2]);
-								// Store int name with associated type in map
-								this.UVT.set(instruction[1], "INT");
+								if (rInt.test(instruction[2]))
+								{
+									// Store int name and value in map
+									this.UVV.set(instruction[1], instruction[2]);
+									// Store int name with associated type in map
+									this.UVT.set(instruction[1], "INT");
+								}
+								else
+								{
+									if (this.dev) {console.warn("Supplied variable value " + instruction[2] + " is invalid.\n")};
+								}
 							}
+							// Variable with that name already exists
 							else
 							{
-								if (this.dev) {console.warn("Supplied variable value " + instruction[2] + " is invalid.\n")};
+								if (this.dev) {console.warn("Variable " + s + " already exists.\n")};
 							}
 						}
+						// Variable name is invalid
 						else
 						{
 							if (this.dev) {console.warn("Supplied variable name " + instruction[1] + " is invalid.\n")};
 						}
 						this.movePC(1);
 					}
+					break;
+				case "SET":
+					{
+						// Int must only contain digits from 0-9
+						let rInt = /^[0-9]+$/;
+						// Float may contain digits followed by a . followed by digits.
+						//let rFloat = //;
+						// Name must start with any letter a-z upper or lower case or an under score and may also have digit anywhere except at the beginning.
+						// Name may have a-z, A-Z, 0-9 and _. The first letter may not be _
+						let rName = /^[a-z|A-z|\_]+[a-z|A-Z|0-9|\_]*$/;///[a-z*|A-Z*|\_*]\d*/;
+
+						let s = instruction[1].toString();
+						let v = instruction[2].toString();
+						// If supplied variable name only has alphanumeric characters
+						if (rName.test(s))
+						{
+							// If supplied value is a variable name
+							if (rName.test(v))
+							{
+								// If a variable with that name exists.
+								if (this.UVV.has(v))
+								{
+									// Set first variable to value of second variable only if their types match.
+									if (this.UVT.get(s) == this.UVT.get(s))
+									{
+										this.UVV.set(s, this.UVT.get(s))
+									}
+									else
+									{
+										if (this.dev) { console.warn("Variable types don't match.\n") };
+									}
+								}
+								else
+								{
+									if (this.dev) { console.warn("Variable " + v + " doesn't exist.\n") };
+								}
+							}
+							// If supplied value is a literal value
+							else
+							{
+								// Only set variable with that name to a value if it exists
+								if (this.UVV.has(s))
+								{
+									// Set variable to value only if it matches the type of the variable.
+									// Int
+									if (this.UVT.get(s) == "INT" &&  rInt.test(v))
+									{
+										this.UVV.set(s, parseInt(v))
+									}
+									// Float. TODO
+									else if (this.UVT.get(s) == "FLOAT" &&  rFloat.test(v))
+									{
+										this.UVV.set(s, parseFloat(v))
+									}
+									// Supplied value doesn't match type of variable.
+									else
+									{
+										if (this.dev) {console.warn("Supplied variable value " + instruction[2] + " is invalid.\n")};
+									}
+								}
+								// Variable with that name already exists
+								else
+								{
+									if (this.dev) {console.warn("Variable " + s + " already exists.\n")};
+								}
+							}
+						}
+						// Variable name is invalid
+						else
+						{
+							if (this.dev) {console.warn("Supplied variable name " + instruction[1] + " is invalid.\n")};
+						}
+						this.movePC(1);
+					}
+					break;
+				case "PRINT":
+					{
+						let uds = instruction[1].toString();
+
+						// It's a literal string
+						if (uds[0] == "$")
+						{
+							// Remove first char
+							let s = uds.substring(1);
+							this.console += s;
+							console.log("Wrote " + s + " to the console.\n");
+						}
+						// It's a user-defined variable of type STRING
+						else if (this.UVT.get(uds) == "STRING")
+						{
+							let s = this.UVV.get(uds);
+							this.console += s;
+							console.log("Wrote " + s + " to the console.\n");
+						}
+						else
+						{
+						}
+						this.movePC(1);
+					}
+					break;
+				case "CLS":
+					{
+					}
+					break;
+				case "GOTO":
+					{
+					}
+					break;
+				case "FUNC":
+					{
+					}
+					break;
 				default:
 					break;
 			}
@@ -332,7 +468,23 @@ class LeoInterpreter
 	{
 		// Remove any "," and split according to white space.
 		//line = line.toString().replace(/\,/, "").split(/\s|\,/);
-		line = line.toString().replace(/\,/, "").split(/\s|\,/);
+		//line = line.toString().replace(/\,/, "").split(/\s|\,/);
+
+		// PRINT: Replace any whitespace followed by " or a-z or A-Z or _ with a comma
+		//line = line.toString().replace(/\s+[\"+|a-z|A-Z|\_]/, ",\"");
+		//line = line.toString().replace(/\s+[\"+|a-z|A-Z|\_]/, ",\"");
+		// Replace any whitespace with a " following with a comma. So print "Hello, World" becomes print,Hello, World"
+		//line = line.toString().replace(/\s+\"{1}/, ",");
+		//// Replace the second " with any white space following with nothing
+		//line = line.toString().replace(/\s+\"{1}/, "");
+		// Replace white space at end of line with nothing
+		//line = line.toString().replace(/\s+$/, "");
+		// Replace remaining white space that is before a comma with a comma.
+		// Split according to comma
+		//line = line.split(/\,/);
+
+		// Split at each whitespace that does not have a "$" preceding it. So "print $Hello, World!" becomes ["print", "$Hello, World!"]
+		line = line.toString().split(/(?<!\$(?:.*))\s+/);
 		console.log("Tokenized line to: " + line + "\n");
 		return line;
 	}
@@ -405,10 +557,11 @@ function getRandomIntInclusive(min, max)
 
 let code = "";
 code += '// Test Program\n';
-code += '  int x, f // An indented comment\n';
-code += 'print "Hello World!"\n';
-code += 'let x, 5\n';
-code += 'add x, 2\n';
+code += '  int x 4	 // An indented comment\n';
+code += 'print $Hello World!\n';
+code += 'int x 5\n';
+code += 'set x 5\n';
+code += 'add x 2\n';
 code += 'print x\n';
 let interpreter = new LeoInterpreter;
 interpreter.load(code);
