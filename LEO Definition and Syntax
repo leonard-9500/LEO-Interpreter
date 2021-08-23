@@ -64,7 +64,8 @@ ADD X 2
 PRINT X // PRINTS 7
 PRINT $Hello, World! // PRINTS "Hello, World!"
 
-// Value Conversion table (-> means "to")
+// Standard (Automatic/Implicit) Conversion table (-> means "to")
+// The interpreter converts the following types automatically. That is, without an explicit conversion.
 INT    -> FLOAT  = ALLOWED
 INT    -> STRING = ALLOWED
 FLOAT  -> INT    = ALLOWED
