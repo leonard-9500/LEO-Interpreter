@@ -58,10 +58,10 @@ instructions on a line must be separated by whitespace.
 // EXAMPLE PROGRAM
 
 INT X 5
-PRINT "X IS "
-PRINT X  // PRINTS 5
+PRINT $X IS  // PRINTS "X IS "
+PRINT X  // PRINTS "5"
 ADD X 2
-PRINT X // PRINTS 7
+PRINT X // PRINTS "7"
 PRINT $Hello, World! // PRINTS "Hello, World!"
 
 // Standard (Automatic/Implicit) Conversion table (-> means "to")
