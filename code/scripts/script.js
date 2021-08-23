@@ -260,7 +260,7 @@ class LeoInterpreter
 		{
 			if (this.dev)
 			{
-				console.log("Executing line " + this.PC + ".\n");
+				console.log("Executing line " + (this.PC+1) + ".\n");
 			}
 
 			//let line = this.tokenize(this.memory[this.PC]);
@@ -273,6 +273,127 @@ class LeoInterpreter
 			{
 				case "ADD":
 					{
+						// Int must only contain digits from 0-9
+						let rInt = /^[0-9]+$/;
+						// Float may contain one of three where d is any number of digits and . the decimal point.
+						// d.d OR .d OR d    So one could assign numbers like these to a float.
+						// 3.1415 .5 5 50.45
+						let rFloat = /([0-9]+\.{1}[0-9]+|\.{1}[0-9]+|[0-9]+)/;
+						// Name must start with any letter a-z upper or lower case or an under score and may also have digit anywhere except at the beginning.
+						// Name may have a-z, A-Z, 0-9 and _. The first letter may not be _
+						let rName = /^[a-z|A-z|\_]+[a-z|A-Z|0-9|\_]*$/;///[a-z*|A-Z*|\_*]\d*/;
+
+						// A user-defined variable. e.g. x
+						let a = instruction[1].toString();
+						// A user-defined variable or a literal. e.g. 5 or $Hello
+						let b = instruction[2].toString();
+						// a is a user-defined variable
+						if (this.UVV.has(a))
+						{
+							/* b is a user-defined variable */
+							if (this.UVV.has(b))
+							{
+								// Set a to value of a+b only if their types match.
+								if (this.UVT.get(a) == this.UVT.get(b))
+								{
+									this.UVV.set(a, this.UVV.get(a)+this.UVV.get(b))
+								}
+								// Their types don't match so try automatic/implicit conversion.
+								else
+								{
+									// a is of type INT.
+									if (this.UVT.get(a) == "INT")
+									{
+										// b is of type FLOAT.
+										if (this.UVT.get(b) == "FLOAT")
+										{
+											// Set a to value of b floored.
+											this.UVV.set(a, this.UVV.get(a) + Math.floor(parseFloat(this.UVV.get(b))));
+										}
+										// Automatic conversion from "STRING" to INT or FLOAT is not allowed. Like in C++. See more types in the GitHub Wiki.
+									}
+									// a is of type FLOAT
+									else if (this.UVT.get(a) == "FLOAT")
+									{
+										// b is of type INT
+										if (this.UVT.get(b) == "INT")
+										{
+											// Unsure if value should be stored with decimal point and 0.
+											// So if b is 3 a should become 3.0 instead of 3 to signal to the user that it is a float.
+											// Set a to value of a+b.
+											this.UVV.set(a, this.UVV.get(a) + this.UVV.get(b));
+										}
+									}
+									// a is of type STRING.
+									else if (this.UVT.get(a) == "STRING")
+									{
+										// Set a to value of a+b.
+										this.UVV.set(a, this.UVV.get(a) + this.UVV.get(b).toString());
+									}
+									/* Implicit conversion failed. */
+									else
+									{
+										if (this.dev) { console.warn("Addition of " + b + " to " + a + " failed.\n") };
+									}
+								}
+							}
+							/* b is a literal */
+							else
+							{
+								// a is of type INT.
+								if (this.UVT.get(a) == "INT")
+								{
+									// b is of type INT.
+									if (rInt.test(b))
+									{
+										// Set a to value of a + b floored.
+										this.UVV.set(a, parseInt(this.UVV.get(a)) + parseInt(b));
+									}
+									// b is of type FLOAT.
+									else if (rFloat.test(b))
+									{
+										// Set a to value of a + b floored.
+										this.UVV.set(a, parseInt(this.UVV.get(a)) + Math.floor(parseFloat(b)));
+									}
+									// Automatic conversion from "STRING" to INT or FLOAT is not allowed. Like in C++. See more types in the GitHub Wiki.
+								}
+								// a is of type FLOAT
+								else if (this.UVT.get(a) == "FLOAT")
+								{
+									// b is of type INT
+									if (rInt.test(b))
+									{
+										// Unsure if value should be stored with decimal point and 0.
+										// So if b is 3 a should become 3.0 instead of 3 to signal to the user that it is a float.
+										// Set a to value of a+b.
+										this.UVV.set(a, parseInt(this.UVV.get(a)) + parseInt(b));
+									}
+									// b is of type FLOAT.
+									else if (rFloat.test(b))
+									{
+										// Set a to value of a + b floored.
+										this.UVV.set(a, parseInt(this.UVV.get(a)) + Math.floor(parseFloat(b)));
+									}
+								}
+								// a is of type STRING.
+								else if (this.UVT.get(a) == "STRING")
+								{
+									// Set a to value of a+b.
+									this.UVV.set(a, this.UVV.get(a) + b.toString());
+								}
+								/* Implicit conversion failed. */
+								else
+								{
+									if (this.dev) { console.warn("Addition of " + b + " to " + a + " failed.\n") };
+								}
+							}
+						}
+						/* a is not a user-defined variable */
+						else
+						{
+							if (this.dev) { console.warn("Variable " + a + " doesn't exist.\n") };
+						}
+						this.movePC(1);
 					}
 					break;
 				case "SUB":
@@ -332,72 +453,111 @@ class LeoInterpreter
 					{
 						// Int must only contain digits from 0-9
 						let rInt = /^[0-9]+$/;
-						// Float may contain digits followed by a . followed by digits.
-						//let rFloat = //;
+						// Float may contain one of three where d is any number of digits and . the decimal point.
+						// d.d OR .d OR d    So one could assign numbers like these to a float.
+						// 3.1415 .5 5 50.45
+						let rFloat = /([0-9]+\.{1}[0-9]+|\.{1}[0-9]+|[0-9]+)/;
 						// Name must start with any letter a-z upper or lower case or an under score and may also have digit anywhere except at the beginning.
 						// Name may have a-z, A-Z, 0-9 and _. The first letter may not be _
 						let rName = /^[a-z|A-z|\_]+[a-z|A-Z|0-9|\_]*$/;///[a-z*|A-Z*|\_*]\d*/;
 
-						let s = instruction[1].toString();
-						let v = instruction[2].toString();
-						// If supplied variable name only has alphanumeric characters
-						if (rName.test(s))
+						// A user-defined variable. e.g. x
+						let a = instruction[1].toString();
+						// A user-defined variable or a literal. e.g. 5 or $Hello
+						let b = instruction[2].toString();
+						// a is a user-defined variable
+						if (this.UVV.has(a))
 						{
-							// If supplied value is a variable name
-							if (rName.test(v))
+							/* b is a user-defined variable */
+							if (this.UVV.has(b))
 							{
-								// If a variable with that name exists.
-								if (this.UVV.has(v))
+								// Set a to value of b only if their types match.
+								if (this.UVT.get(a) == this.UVT.get(b))
 								{
-									// Set first variable to value of second variable only if their types match.
-									if (this.UVT.get(s) == this.UVT.get(s))
-									{
-										this.UVV.set(s, this.UVT.get(s))
-									}
-									else
-									{
-										if (this.dev) { console.warn("Variable types don't match.\n") };
-									}
+									this.UVV.set(a, this.UVV.get(b))
 								}
+								// Their types don't match so try automatic/implicit conversion.
 								else
 								{
-									if (this.dev) { console.warn("Variable " + v + " doesn't exist.\n") };
+									// a is of type INT.
+									if (this.UVT.get(a) == "INT")
+									{
+										// b is of type FLOAT.
+										if (this.UVT.get(b) == "FLOAT")
+										{
+											// Set a to value of b floored.
+											this.UVV.set(a, Math.floor(parseFloat(this.UVV.get(b))));
+										}
+										// Automatic conversion from "STRING" to INT or FLOAT is not allowed. Like in C++. See more types in the GitHub Wiki.
+									}
+									// a is of type FLOAT
+									else if (this.UVT.get(a) == "FLOAT")
+									{
+										// b is of type INT
+										if (this.UVT.get(b) == "INT")
+										{
+											// Unsure if value should be stored with decimal point and 0.
+											// So if b is 3 a should become 3.0 instead of 3 to signal to the user that it is a float.
+											// Set a to value of b.
+											this.UVV.set(a, this.UVV.get(b));
+										}
+									}
+									// a is of type STRING.
+									else if (this.UVT.get(a) == "STRING")
+									{
+										// Set a to value of b.
+										this.UVV.set(a, this.UVV.get(b).toString());
+									}
+									/* Implicit conversion failed. */
+									else
+									{
+										if (this.dev) { console.warn("Implicit conversion from " + b + " to " + a + " failed.\n") };
+									}
 								}
 							}
-							// If supplied value is a literal value
+							/* b is a literal */
 							else
 							{
-								// Only set variable with that name to a value if it exists
-								if (this.UVV.has(s))
+								// a is of type INT.
+								if (this.UVT.get(a) == "INT")
 								{
-									// Set variable to value only if it matches the type of the variable.
-									// Int
-									if (this.UVT.get(s) == "INT" &&  rInt.test(v))
+									// b is of type FLOAT.
+									if (rFloat.test(b))
 									{
-										this.UVV.set(s, parseInt(v))
+										// Set a to value of b floored.
+										this.UVV.set(a, Math.floor(parseFloat(b)));
 									}
-									// Float. TODO
-									else if (this.UVT.get(s) == "FLOAT" &&  rFloat.test(v))
+									// Automatic conversion from "STRING" to INT or FLOAT is not allowed. Like in C++. See more types in the GitHub Wiki.
+								}
+								// a is of type FLOAT
+								else if (this.UVT.get(a) == "FLOAT")
+								{
+									// b is of type INT
+									if (rInt.test(b))
 									{
-										this.UVV.set(s, parseFloat(v))
-									}
-									// Supplied value doesn't match type of variable.
-									else
-									{
-										if (this.dev) {console.warn("Supplied variable value " + instruction[2] + " is invalid.\n")};
+										// Unsure if value should be stored with decimal point and 0.
+										// So if b is 3 a should become 3.0 instead of 3 to signal to the user that it is a float.
+										// Set a to value of b.
+										this.UVV.set(a, b);
 									}
 								}
-								// Variable with that name already exists
+								// a is of type STRING.
+								else if (this.UVT.get(a) == "STRING")
+								{
+									// Set a to value of b.
+									this.UVV.set(a, b.toString());
+								}
+								/* Implicit conversion failed. */
 								else
 								{
-									if (this.dev) {console.warn("Variable " + s + " already exists.\n")};
+									if (this.dev) { console.warn("Implicit conversion from " + b + " to " + a + " failed.\n") };
 								}
 							}
 						}
-						// Variable name is invalid
+						/* a is not a user-defined variable */
 						else
 						{
-							if (this.dev) {console.warn("Supplied variable name " + instruction[1] + " is invalid.\n")};
+							if (this.dev) { console.warn("Variable " + a + " doesn't exist.\n") };
 						}
 						this.movePC(1);
 					}
@@ -414,8 +574,8 @@ class LeoInterpreter
 							this.console += s;
 							console.log("Wrote " + s + " to the console.\n");
 						}
-						// It's a user-defined variable of type STRING
-						else if (this.UVT.get(uds) == "STRING")
+						// It's a user-defined variable
+						else if (this.UVV.has(uds))
 						{
 							let s = this.UVV.get(uds);
 							this.console += s;
@@ -429,6 +589,8 @@ class LeoInterpreter
 					break;
 				case "CLS":
 					{
+						this.console = "";
+						if (this.dev) { console.log("Cleared the screen.\n")};
 					}
 					break;
 				case "GOTO":
@@ -559,8 +721,8 @@ let code = "";
 code += '// Test Program\n';
 code += '  int x 4	 // An indented comment\n';
 code += 'print $Hello World!\n';
-code += 'int x 5\n';
-code += 'set x 5\n';
+code += 'add x 5\n';
+code += 'print x\n';
 code += 'add x 2\n';
 code += 'print x\n';
 let interpreter = new LeoInterpreter;
