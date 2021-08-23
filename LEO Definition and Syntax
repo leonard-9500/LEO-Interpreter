@@ -15,7 +15,10 @@ PRINT
 CLS
 GOTO
 FUNC
+
 //
+$
+The keywords "//" gets removed upon loading the code.
 
 // ADD THE SECOND VALUE TO THE FIRST VALUE AND STORE THE RESULT IN THE FIRST VARIABLE. SO ADD 5, 2 = 7
 ADD X|V, X|V
@@ -44,6 +47,19 @@ CLS
 // GETS POPPED OFF THE STACK AND ASSIGNED TO THE PC.
 FUNC X
 ;
+// Precedes any user-defined string literal
+$
 
 // "//" starts a single-line comment. Any code following this keyword is omitted for this line.
 // Any text can go in here.
+
+instructions on a line must be separated by whitespace.
+
+// EXAMPLE PROGRAM
+
+INT X 5
+PRINT "X IS "
+PRINT X  // PRINTS 5
+ADD X 2
+PRINT X // PRINTS 7
+PRINT $Hello, World! // PRINTS "Hello, World!"
