@@ -47,3 +47,13 @@ FUNC X
 
 // "//" starts a single-line comment. Any code following this keyword is omitted for this line.
 // Any text can go in here.
+
+instructions on a line must be separated by whitespace.
+
+// EXAMPLE PROGRAM
+
+INT X 5
+PRINT "X IS "
+PRINT X  // PRINTS 5
+ADD X 2
+PRINT X // PRINTS 7
