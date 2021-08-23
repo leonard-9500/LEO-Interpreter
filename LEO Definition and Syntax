@@ -63,3 +63,13 @@ PRINT X  // PRINTS 5
 ADD X 2
 PRINT X // PRINTS 7
 PRINT $Hello, World! // PRINTS "Hello, World!"
+
+// Value Conversion table (-> means "to")
+INT    -> FLOAT  = ALLOWED
+INT    -> STRING = ALLOWED
+FLOAT  -> INT    = ALLOWED
+FLOAT  -> STRING = ALLOWED
+STRING -> INT    = DISALLOWED
+STRING -> FLOAT  = DISALLOWED
+$      -> INT    = DISALLOWED
+$      -> FLOAT  = DISALLOWED
