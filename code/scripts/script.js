@@ -30,6 +30,25 @@ window.addEventListener("load", function()
 			interpreter.isExecuting = true;
 		}, false);
 	}
+
+	// This lets the user add a 4 letter wide tab inside the text editor. The tab size is controlled within the style.css file. Standard is 8 letters wide.
+	if (texteditor)
+	{
+		texteditor.addEventListener("keydown", function (e)
+		{
+			if (e.key == "Tab")
+			{
+				e.preventDefault();
+				let start = this.selectionStart;
+				let end = this.selectionEnd;
+
+				this.value = this.value.substring(0, start) + "\t" + this.value.substring(end);
+
+				//this.selectionStart = this.selectionEnd = start + 1;
+				this.selectionEnd = start + 1;
+			}
+		});
+	}
 });
 
 /* Audio Object Definitions */
@@ -251,6 +270,12 @@ class LeoInterpreter
 		this.UVV = new Map();
 		// User-defined variable names and their type, such as "INT" or later "STRING" and "FLOAT"
 		this.UVT = new Map();
+		// User-defined functions and their start address.
+		this.UFV = new Map();
+		// The name stack. This gets the name of the function that will get executed by a GOTO statement pushed onto it.
+		this.S = new Array();
+		// The address stack. Whenever the PC encounter the GOTO's a function, the current PC will be pushed onto this stack.
+		this.A = new Array();
 		//this.UV = [];
 		this.PC = 0;
 		this.programStartAddress = 0;
@@ -286,68 +311,116 @@ class LeoInterpreter
 	{
 		while (cycles > 0)
 		{
-			if (this.dev)
+			// Only tokenize and parse if it contains something
+			if (this.memory[this.PC] != null && this.memory[this.PC] != 0)
 			{
-				console.log("Executing line " + (this.PC+1) + ".\n");
-			}
+				if (this.dev)
+				{
+					console.log("Executing line " + (this.PC+1) + ".\n");
+				}
 
-			//let line = this.tokenize(this.memory[this.PC]);
-			let instruction = this.tokenize(this.memory[this.PC]);
+				//let line = this.tokenize(this.memory[this.PC]);
+				let instruction = this.tokenize(this.memory[this.PC]);
 
-			let token = instruction[0];
-			console.log(token);
+				let token = instruction[0];
+				console.log(token);
 
-			switch(token.toUpperCase())
-			{
-				case "ADD":
-					{
-						// Int must only contain digits from 0-9
-						let rInt = /^[0-9]+$/;
-						// Float may contain one of three where d is any number of digits and . the decimal point.
-						// d.d OR .d OR d    So one could assign numbers like these to a float.
-						// 3.1415 .5 5 50.45
-						let rFloat = /([0-9]+\.{1}[0-9]+|\.{1}[0-9]+|[0-9]+)/;
-						// Name must start with any letter a-z upper or lower case or an under score and may also have digit anywhere except at the beginning.
-						// Name may have a-z, A-Z, 0-9 and _. The first letter may not be _
-						let rName = /^[a-z|A-z|\_]+[a-z|A-Z|0-9|\_]*$/;///[a-z*|A-Z*|\_*]\d*/;
-
-						// A user-defined variable. e.g. x
-						let a = instruction[1].toString();
-						// A user-defined variable or a literal. e.g. 5 or $Hello
-						let b = instruction[2].toString();
-						// a is a user-defined variable
-						if (this.UVV.has(a))
+				switch(token.toUpperCase())
+				{
+					case "ADD":
 						{
-							/* b is a user-defined variable */
-							if (this.UVV.has(b))
+							// Int must only contain digits from 0-9
+							let rInt = /^[0-9]+$/;
+							// Float may contain one of three where d is any number of digits and . the decimal point.
+							// d.d OR .d OR d    So one could assign numbers like these to a float.
+							// 3.1415 .5 5 50.45
+							let rFloat = /([0-9]+\.{1}[0-9]+|\.{1}[0-9]+|[0-9]+)/;
+							// Name must start with any letter a-z upper or lower case or an under score and may also have digit anywhere except at the beginning.
+							// Name may have a-z, A-Z, 0-9 and _. The first letter may not be _
+							let rName = /^[a-z|A-z|\_]+[a-z|A-Z|0-9|\_]*$/;///[a-z*|A-Z*|\_*]\d*/;
+
+							// A user-defined variable. e.g. x
+							let a = instruction[1].toString();
+							// A user-defined variable or a literal. e.g. 5 or $Hello
+							let b = instruction[2].toString();
+							// a is a user-defined variable
+							if (this.UVV.has(a))
 							{
-								// Set a to value of a+b only if their types match.
-								if (this.UVT.get(a) == this.UVT.get(b))
+								/* b is a user-defined variable */
+								if (this.UVV.has(b))
 								{
-									if (this.UVT.get(a) == "INT")
+									// Set a to value of a+b only if their types match.
+									if (this.UVT.get(a) == this.UVT.get(b))
 									{
-										this.UVV.set(a, parseInt(this.UVV.get(a)) + parseInt(this.UVV.get(b)));
+										if (this.UVT.get(a) == "INT")
+										{
+											this.UVV.set(a, parseInt(this.UVV.get(a)) + parseInt(this.UVV.get(b)));
+										}
+										else if (this.UVT.get(a) == "FLOAT")
+										{
+											this.UVV.set(a, parseFloat(this.UVV.get(a)) + parseFloat(this.UVV.get(b)));
+										}
+										else if (this.UVT.get(a) == "STRING")
+										{
+											this.UVV.set(a, this.UVV.get(a).toString() + this.UVV.get(b).toString());
+										}
 									}
-									else if (this.UVT.get(a) == "FLOAT")
+									// Their types don't match so try automatic/implicit conversion.
+									else
 									{
-										this.UVV.set(a, parseFloat(this.UVV.get(a)) + parseFloat(this.UVV.get(b)));
-									}
-									else if (this.UVT.get(a) == "STRING")
-									{
-										this.UVV.set(a, this.UVV.get(a).toString() + this.UVV.get(b).toString());
+										// a is of type INT.
+										if (this.UVT.get(a) == "INT")
+										{
+											// b is of type FLOAT.
+											if (this.UVT.get(b) == "FLOAT")
+											{
+												// Set a to value of b floored.
+												this.UVV.set(a, this.UVV.get(a) + Math.floor(parseFloat(this.UVV.get(b))));
+											}
+											// Automatic conversion from "STRING" to INT or FLOAT is not allowed. Like in C++. See more types in the GitHub Wiki.
+										}
+										// a is of type FLOAT
+										else if (this.UVT.get(a) == "FLOAT")
+										{
+											// b is of type INT
+											if (this.UVT.get(b) == "INT")
+											{
+												// Unsure if value should be stored with decimal point and 0.
+												// So if b is 3 a should become 3.0 instead of 3 to signal to the user that it is a float.
+												// Set a to value of a+b.
+												this.UVV.set(a, this.UVV.get(a) + this.UVV.get(b));
+											}
+										}
+										// a is of type STRING.
+										else if (this.UVT.get(a) == "STRING")
+										{
+											// Set a to value of a+b.
+											this.UVV.set(a, this.UVV.get(a) + this.UVV.get(b).toString());
+										}
+										/* Implicit conversion failed. */
+										else
+										{
+											if (this.dev) { console.warn("Addition of " + b + " to " + a + " failed.\n") };
+										}
 									}
 								}
-								// Their types don't match so try automatic/implicit conversion.
+								/* b is a literal */
 								else
 								{
 									// a is of type INT.
 									if (this.UVT.get(a) == "INT")
 									{
-										// b is of type FLOAT.
-										if (this.UVT.get(b) == "FLOAT")
+										// b is of type INT.
+										if (rInt.test(b))
 										{
-											// Set a to value of b floored.
-											this.UVV.set(a, this.UVV.get(a) + Math.floor(parseFloat(this.UVV.get(b))));
+											// Set a to value of a + b.
+											this.UVV.set(a, parseInt(this.UVV.get(a)) + parseInt(b));
+										}
+										// b is of type FLOAT.
+										else if (rFloat.test(b))
+										{
+											// Set a to value of a + b floored.
+											this.UVV.set(a, parseInt(this.UVV.get(a)) + Math.floor(parseFloat(b)));
 										}
 										// Automatic conversion from "STRING" to INT or FLOAT is not allowed. Like in C++. See more types in the GitHub Wiki.
 									}
@@ -355,19 +428,25 @@ class LeoInterpreter
 									else if (this.UVT.get(a) == "FLOAT")
 									{
 										// b is of type INT
-										if (this.UVT.get(b) == "INT")
+										if (rInt.test(b))
 										{
 											// Unsure if value should be stored with decimal point and 0.
 											// So if b is 3 a should become 3.0 instead of 3 to signal to the user that it is a float.
 											// Set a to value of a+b.
-											this.UVV.set(a, this.UVV.get(a) + this.UVV.get(b));
+											this.UVV.set(a, parseInt(this.UVV.get(a)) + parseInt(b));
+										}
+										// b is of type FLOAT.
+										else if (rFloat.test(b))
+										{
+											// Set a to value of a + b floored.
+											this.UVV.set(a, parseInt(this.UVV.get(a)) + parseFloat(b));
 										}
 									}
 									// a is of type STRING.
 									else if (this.UVT.get(a) == "STRING")
 									{
 										// Set a to value of a+b.
-										this.UVV.set(a, this.UVV.get(a) + this.UVV.get(b).toString());
+										this.UVV.set(a, this.UVV.get(a) + b.toString());
 									}
 									/* Implicit conversion failed. */
 									else
@@ -376,160 +455,110 @@ class LeoInterpreter
 									}
 								}
 							}
-							/* b is a literal */
+							/* a is not a user-defined variable */
 							else
 							{
-								// a is of type INT.
-								if (this.UVT.get(a) == "INT")
-								{
-									// b is of type INT.
-									if (rInt.test(b))
-									{
-										// Set a to value of a + b.
-										this.UVV.set(a, parseInt(this.UVV.get(a)) + parseInt(b));
-									}
-									// b is of type FLOAT.
-									else if (rFloat.test(b))
-									{
-										// Set a to value of a + b floored.
-										this.UVV.set(a, parseInt(this.UVV.get(a)) + Math.floor(parseFloat(b)));
-									}
-									// Automatic conversion from "STRING" to INT or FLOAT is not allowed. Like in C++. See more types in the GitHub Wiki.
-								}
-								// a is of type FLOAT
-								else if (this.UVT.get(a) == "FLOAT")
-								{
-									// b is of type INT
-									if (rInt.test(b))
-									{
-										// Unsure if value should be stored with decimal point and 0.
-										// So if b is 3 a should become 3.0 instead of 3 to signal to the user that it is a float.
-										// Set a to value of a+b.
-										this.UVV.set(a, parseInt(this.UVV.get(a)) + parseInt(b));
-									}
-									// b is of type FLOAT.
-									else if (rFloat.test(b))
-									{
-										// Set a to value of a + b floored.
-										this.UVV.set(a, parseInt(this.UVV.get(a)) + parseFloat(b));
-									}
-								}
-								// a is of type STRING.
-								else if (this.UVT.get(a) == "STRING")
-								{
-									// Set a to value of a+b.
-									this.UVV.set(a, this.UVV.get(a) + b.toString());
-								}
-								/* Implicit conversion failed. */
-								else
-								{
-									if (this.dev) { console.warn("Addition of " + b + " to " + a + " failed.\n") };
-								}
+								if (this.dev) { console.warn("Variable " + a + " doesn't exist.\n") };
 							}
+							this.movePC(1);
 						}
-						/* a is not a user-defined variable */
-						else
+						break;
+					case "SUB":
 						{
-							if (this.dev) { console.warn("Variable " + a + " doesn't exist.\n") };
-						}
-						this.movePC(1);
-					}
-					break;
-				case "SUB":
-					{
-					}
-					break;
-				case "MUL":
-					{
-					}
-					break;
-				case "DIV":
-					{
-					}
-					break;
-				case "INT":
-					{
-						// Int must only contain digits from 0-9
-						let rInt = /^[0-9]+$/;
-						// Name must start with any letter a-z upper or lower case or an under score and may also have digit anywhere except at the beginning.
-						// Name may have a-z, A-Z, 0-9 and _. The first letter may not be _
-						let rName = /^[a-z|A-z|\_]+[a-z|A-Z|0-9|\_]*$/;///[a-z*|A-Z*|\_*]\d*/;
+							// Int must only contain digits from 0-9
+							let rInt = /^[0-9]+$/;
+							// Float may contain one of three where d is any number of digits and . the decimal point.
+							// d.d OR .d OR d    So one could assign numbers like these to a float.
+							// 3.1415 .5 5 50.45
+							let rFloat = /([0-9]+\.{1}[0-9]+|\.{1}[0-9]+|[0-9]+)/;
+							// Name must start with any letter a-z upper or lower case or an under score and may also have digit anywhere except at the beginning.
+							// Name may have a-z, A-Z, 0-9 and _. The first letter may not be _
+							let rName = /^[a-z|A-z|\_]+[a-z|A-Z|0-9|\_]*$/;///[a-z*|A-Z*|\_*]\d*/;
 
-						// A user-defined variable. e.g. x
-						let a = instruction[1].toString();
-						// A user-defined variable or a literal. e.g. 5 or $Hello
-						let b = instruction[2].toString();
-
-						// If supplied variable name only has alphanumeric characters and supplied value is only a digit (as opposed to letters)
-						if (rName.test(a))
-						{
-							// Only create variable with that name if it hasn't been created before
-							if (this.UVV.has(a) != true)
+							// A user-defined variable. e.g. x
+							let a = instruction[1].toString();
+							// A user-defined variable or a literal. e.g. 5 or $Hello
+							let b = instruction[2].toString();
+							// a is a user-defined variable
+							console.log("sub instrction.\n");
+							if (this.UVV.has(a))
 							{
-								if (rInt.test(b))
+								/* b is a user-defined variable */
+								if (this.UVV.has(b))
 								{
-									// Store int name and value in map
-									this.UVV.set(a, b);
-									// Store int name with associated type in map
-									this.UVT.set(a, "INT");
+									// Set a to value of a-b only if their types match.
+									if (this.UVT.get(a) == this.UVT.get(b))
+									{
+										if (this.UVT.get(a) == "INT")
+										{
+											this.UVV.set(a, parseInt(this.UVV.get(a)) - parseInt(this.UVV.get(b)));
+										}
+										else if (this.UVT.get(a) == "FLOAT")
+										{
+											this.UVV.set(a, parseFloat(this.UVV.get(a)) - parseFloat(this.UVV.get(b)));
+										}
+										else if (this.UVT.get(a) == "STRING")
+										{
+											this.UVV.set(a, this.UVV.get(a).toString() - this.UVV.get(b).toString());
+										}
+									}
+									// Their types don't match so try automatic/implicit conversion.
+									else
+									{
+										// a is of type INT.
+										if (this.UVT.get(a) == "INT")
+										{
+											// b is of type FLOAT.
+											if (this.UVT.get(b) == "FLOAT")
+											{
+												// Set a to value of a - b floored.
+												this.UVV.set(a, this.UVV.get(a) - Math.floor(parseFloat(this.UVV.get(b))));
+											}
+											// Automatic conversion from "STRING" to INT or FLOAT is not allowed. Like in C++. See more types in the GitHub Wiki.
+										}
+										// a is of type FLOAT
+										else if (this.UVT.get(a) == "FLOAT")
+										{
+											// b is of type INT
+											if (this.UVT.get(b) == "INT")
+											{
+												// Set a to value of a+b.
+												this.UVV.set(a, this.UVV.get(a) - this.UVV.get(b));
+											}
+										}
+										// a is of type STRING.
+										else if (this.UVT.get(a) == "STRING")
+										{
+											if (this.dev)
+											{
+												console.log("Unable to subtract " + b + " from " + a + ".\n");
+												console.log(a + " is not of type STRING.\n");
+											};
+										}
+										/* Implicit conversion failed. */
+										else
+										{
+											if (this.dev) { console.warn("Subtraction of " + b + " from " + a + " failed.\n") };
+										}
+									}
 								}
-								else
-								{
-									if (this.dev) {console.warn("Supplied variable value " + b + " is invalid.\n")};
-								}
-							}
-							// Variable with that name already exists
-							else
-							{
-								if (this.dev) {console.warn("Variable " + a + " already exists.\n")};
-							}
-						}
-						// Variable name is invalid
-						else
-						{
-							if (this.dev) {console.warn("Supplied variable name " + a + " is invalid.\n")};
-						}
-						this.movePC(1);
-					}
-					break;
-				case "SET":
-					{
-						// Int must only contain digits from 0-9
-						let rInt = /^[0-9]+$/;
-						// Float may contain one of three where d is any number of digits and . the decimal point.
-						// d.d OR .d OR d    So one could assign numbers like these to a float.
-						// 3.1415 .5 5 50.45
-						let rFloat = /([0-9]+\.{1}[0-9]+|\.{1}[0-9]+|[0-9]+)/;
-						// Name must start with any letter a-z upper or lower case or an under score and may also have digit anywhere except at the beginning.
-						// Name may have a-z, A-Z, 0-9 and _. The first letter may not be _
-						let rName = /^[a-z|A-z|\_]+[a-z|A-Z|0-9|\_]*$/;///[a-z*|A-Z*|\_*]\d*/;
-
-						// A user-defined variable. e.g. x
-						let a = instruction[1].toString();
-						// A user-defined variable or a literal. e.g. 5 or $Hello
-						let b = instruction[2].toString();
-						// a is a user-defined variable
-						if (this.UVV.has(a))
-						{
-							/* b is a user-defined variable */
-							if (this.UVV.has(b))
-							{
-								// Set a to value of b only if their types match.
-								if (this.UVT.get(a) == this.UVT.get(b))
-								{
-									this.UVV.set(a, this.UVV.get(b))
-								}
-								// Their types don't match so try automatic/implicit conversion.
+								/* b is a literal */
 								else
 								{
 									// a is of type INT.
 									if (this.UVT.get(a) == "INT")
 									{
-										// b is of type FLOAT.
-										if (this.UVT.get(b) == "FLOAT")
+										// b is of type INT.
+										if (rInt.test(b))
 										{
-											// Set a to value of b floored.
-											this.UVV.set(a, Math.floor(parseFloat(this.UVV.get(b))));
+											// Set a to value of a + b.
+											this.UVV.set(a, parseInt(this.UVV.get(a)) - parseInt(b));
+										}
+										// b is of type FLOAT.
+										else if (rFloat.test(b))
+										{
+											// Set a to value of a + b floored.
+											this.UVV.set(a, parseInt(this.UVV.get(a)) - Math.floor(parseFloat(b)));
 										}
 										// Automatic conversion from "STRING" to INT or FLOAT is not allowed. Like in C++. See more types in the GitHub Wiki.
 									}
@@ -537,19 +566,517 @@ class LeoInterpreter
 									else if (this.UVT.get(a) == "FLOAT")
 									{
 										// b is of type INT
-										if (this.UVT.get(b) == "INT")
+										if (rInt.test(b))
+										{
+											// Unsure if value should be stored with decimal point and 0.
+											// So if b is 3 a should become 3.0 instead of 3 to signal to the user that it is a float.
+											// Set a to value of a+b.
+											this.UVV.set(a, parseInt(this.UVV.get(a)) - parseInt(b));
+										}
+										// b is of type FLOAT.
+										else if (rFloat.test(b))
+										{
+											// Set a to value of a + b floored.
+											this.UVV.set(a, parseInt(this.UVV.get(a)) - parseFloat(b));
+										}
+									}
+									// a is of type STRING.
+									else if (this.UVT.get(a) == "STRING")
+									{
+										// Set a to value of a+b.
+										this.UVV.set(a, this.UVV.get(a) - b.toString());
+									}
+									/* Implicit conversion failed. */
+									else
+									{
+										if (this.dev) { console.warn("Subtraction of " + b + " from " + a + " failed.\n") };
+									}
+								}
+							}
+							/* a is not a user-defined variable */
+							else
+							{
+								if (this.dev) { console.warn("Variable " + a + " doesn't exist.\n") };
+							}
+							this.movePC(1);
+						}
+						break;
+					case "MUL":
+						{
+							// Int must only contain digits from 0-9
+							let rInt = /^[0-9]+$/;
+							// Float may contain one of three where d is any number of digits and . the decimal point.
+							// d.d OR .d OR d    So one could assign numbers like these to a float.
+							// 3.1415 .5 5 50.45
+							let rFloat = /([0-9]+\.{1}[0-9]+|\.{1}[0-9]+|[0-9]+)/;
+							// Name must start with any letter a-z upper or lower case or an under score and may also have digit anywhere except at the beginning.
+							// Name may have a-z, A-Z, 0-9 and _. The first letter may not be _
+							let rName = /^[a-z|A-z|\_]+[a-z|A-Z|0-9|\_]*$/;///[a-z*|A-Z*|\_*]\d*/;
+
+							// A user-defined variable. e.g. x
+							let a = instruction[1].toString();
+							// A user-defined variable or a literal. e.g. 5 or $Hello
+							let b = instruction[2].toString();
+							// a is a user-defined variable
+							if (this.UVV.has(a))
+							{
+								/* b is a user-defined variable */
+								if (this.UVV.has(b))
+								{
+									/*
+									if (this.UVT.get(b) == "INT" || this.UVT.get(b) == "FLOAT")
+									{
+										this.UVV.set(a, parseInt(this.UVV.get(a)) + parseInt(this.UVV.get(b)));
+									}
+									*/
+									// Set a to value of a*b only if their types match.
+									if (this.UVT.get(a) == this.UVT.get(b))
+									{
+										if (this.UVT.get(a) == "INT")
+										{
+											this.UVV.set(a, parseInt(this.UVV.get(a)) * parseInt(this.UVV.get(b)));
+										}
+										else if (this.UVT.get(a) == "FLOAT")
+										{
+											this.UVV.set(a, parseFloat(this.UVV.get(a)) * parseFloat(this.UVV.get(b)));
+										}
+										else if (this.UVT.get(a) == "STRING")
+										{
+											if (this.dev)
+											{
+												console.log("Cannot multiply " + a + " by " + b + ".\n");
+												console.log(a + " and " + b + " are of type STRING.\n");
+											}
+										}
+									}
+									// Their types don't match so try automatic/implicit conversion.
+									else
+									{
+										// a is of type INT.
+										if (this.UVT.get(a) == "INT")
+										{
+											// b is of type FLOAT.
+											if (this.UVT.get(b) == "FLOAT")
+											{
+												this.UVV.set(a, Math.floor(parseInt(this.UVV.get(a)) * parseFloat(this.UVV.get(b))));
+											}
+										}
+										// a is of type FLOAT
+										else if (this.UVT.get(a) == "FLOAT")
+										{
+											// b is of type INT
+											if (this.UVT.get(b) == "INT")
+											{
+												this.UVV.set(a, Math.floor(parseFloat(this.UVV.get(a)) * parseInt(this.UVV.get(b))));
+											}
+										}
+										// a is of type STRING.
+										else if (this.UVT.get(a) == "STRING")
+										{
+											if (this.dev)
+											{
+												console.log("Cannot multiply " + a + " by " + b + ".\n");
+												console.log(a + " is of type STRING.\n");
+											}
+										}
+										/* Implicit conversion failed. */
+										else
+										{
+											if (this.dev) { console.warn("Multiplication of " + a + " by " + b + " failed.\n") };
+										}
+									}
+								}
+								/* b is a literal */
+								else
+								{
+									// a is of type INT.
+									if (this.UVT.get(a) == "INT")
+									{
+										// b is of type INT.
+										if (rInt.test(b))
+										{
+											// Set a to value of a + b.
+											this.UVV.set(a, parseInt(this.UVV.get(a)) * parseInt(b));
+										}
+										// b is of type FLOAT.
+										else if (rFloat.test(b))
+										{
+											// Set a to value of a + b floored.
+											this.UVV.set(a, Math.floor(parseInt(this.UVV.get(a)) * parseFloat(b)));
+										}
+									}
+									// a is of type FLOAT
+									else if (this.UVT.get(a) == "FLOAT")
+									{
+										// b is of type INT
+										if (rInt.test(b))
+										{
+											this.UVV.set(a, parseFloat(this.UVV.get(a)) * parseInt(b));
+										}
+										// b is of type FLOAT.
+										else if (rFloat.test(b))
+										{
+											this.UVV.set(a, parseFloat(this.UVV.get(a)) * parseFloat(b));
+										}
+									}
+									// a is of type STRING.
+									else if (this.UVT.get(a) == "STRING")
+									{
+										if (this.dev)
+										{
+											console.log("Cannot multiply " + a + " by " + b + ".\n");
+											console.log(a + " is of type STRING.\n");
+										}
+									}
+									/* Implicit conversion failed. */
+									else
+									{
+										if (this.dev) { console.warn("Multiplication of " + a + " by " + b + " failed.\n") };
+									}
+								}
+							}
+							/* a is not a user-defined variable */
+							else
+							{
+								if (this.dev) { console.warn("Variable " + a + " doesn't exist.\n") };
+							}
+							this.movePC(1);
+						}
+						break;
+					case "DIV":
+						{
+							// Int must only contain digits from 0-9
+							let rInt = /^[0-9]+$/;
+							// Float may contain one of three where d is any number of digits and . the decimal point.
+							// d.d OR .d OR d    So one could assign numbers like these to a float.
+							// 3.1415 .5 5 50.45
+							let rFloat = /([0-9]+\.{1}[0-9]+|\.{1}[0-9]+|[0-9]+)/;
+							// Name must start with any letter a-z upper or lower case or an under score and may also have digit anywhere except at the beginning.
+							// Name may have a-z, A-Z, 0-9 and _. The first letter may not be _
+							let rName = /^[a-z|A-z|\_]+[a-z|A-Z|0-9|\_]*$/;///[a-z*|A-Z*|\_*]\d*/;
+
+							// A user-defined variable. e.g. x
+							let a = instruction[1].toString();
+							// A user-defined variable or a literal. e.g. 5 or $Hello
+							let b = instruction[2].toString();
+							// a is a user-defined variable
+							if (this.UVV.has(a))
+							{
+								/* b is a user-defined variable */
+								if (this.UVV.has(b))
+								{
+									/*
+									if (this.UVT.get(b) == "INT" || this.UVT.get(b) == "FLOAT")
+									{
+										this.UVV.set(a, parseInt(this.UVV.get(a)) + parseInt(this.UVV.get(b)));
+									}
+									*/
+									// Set a to value of a*b only if their types match.
+									if (this.UVT.get(a) == this.UVT.get(b))
+									{
+										if (this.UVT.get(a) == "INT")
+										{
+											this.UVV.set(a, parseInt(this.UVV.get(a)) / parseInt(this.UVV.get(b)));
+										}
+										else if (this.UVT.get(a) == "FLOAT")
+										{
+											this.UVV.set(a, parseFloat(this.UVV.get(a)) / parseFloat(this.UVV.get(b)));
+										}
+										else if (this.UVT.get(a) == "STRING")
+										{
+											if (this.dev)
+											{
+												console.log("Cannot divide " + a + " by " + b + ".\n");
+												console.log(a + " and " + b + " are of type STRING.\n");
+											}
+										}
+									}
+									// Their types don't match so try automatic/implicit conversion.
+									else
+									{
+										// a is of type INT.
+										if (this.UVT.get(a) == "INT")
+										{
+											// b is of type FLOAT.
+											if (this.UVT.get(b) == "FLOAT")
+											{
+												this.UVV.set(a, Math.floor(parseInt(this.UVV.get(a)) / parseFloat(this.UVV.get(b))));
+											}
+										}
+										// a is of type FLOAT
+										else if (this.UVT.get(a) == "FLOAT")
+										{
+											// b is of type INT
+											if (this.UVT.get(b) == "INT")
+											{
+												this.UVV.set(a, Math.floor(parseFloat(this.UVV.get(a)) / parseInt(this.UVV.get(b))));
+											}
+										}
+										// a is of type STRING.
+										else if (this.UVT.get(a) == "STRING")
+										{
+											if (this.dev)
+											{
+												console.log("Cannot divide " + a + " by " + b + ".\n");
+												console.log(a + " is of type STRING.\n");
+											}
+										}
+										/* Implicit conversion failed. */
+										else
+										{
+											if (this.dev) { console.warn("Division of " + a + " by " + b + " failed.\n") };
+										}
+									}
+								}
+								/* b is a literal */
+								else
+								{
+									// a is of type INT.
+									if (this.UVT.get(a) == "INT")
+									{
+										// b is of type INT.
+										if (rInt.test(b))
+										{
+											// Set a to value of a + b.
+											this.UVV.set(a, parseInt(this.UVV.get(a)) / parseInt(b));
+										}
+										// b is of type FLOAT.
+										else if (rFloat.test(b))
+										{
+											// Set a to value of a + b floored.
+											this.UVV.set(a, Math.floor(parseInt(this.UVV.get(a)) / parseFloat(b)));
+										}
+									}
+									// a is of type FLOAT
+									else if (this.UVT.get(a) == "FLOAT")
+									{
+										// b is of type INT
+										if (rInt.test(b))
+										{
+											this.UVV.set(a, parseFloat(this.UVV.get(a)) / parseInt(b));
+										}
+										// b is of type FLOAT.
+										else if (rFloat.test(b))
+										{
+											this.UVV.set(a, parseFloat(this.UVV.get(a)) / parseFloat(b));
+										}
+									}
+									// a is of type STRING.
+									else if (this.UVT.get(a) == "STRING")
+									{
+										if (this.dev)
+										{
+											console.log("Cannot divide " + a + " by " + b + ".\n");
+											console.log(a + " is of type STRING.\n");
+										}
+									}
+									/* Implicit conversion failed. */
+									else
+									{
+										if (this.dev) { console.warn("Division of " + a + " by " + b + " failed.\n") };
+									}
+								}
+							}
+							/* a is not a user-defined variable */
+							else
+							{
+								if (this.dev) { console.warn("Variable " + a + " doesn't exist.\n") };
+							}
+							this.movePC(1);
+						}
+						break;
+					case "INT":
+						{
+							// Int must only contain digits from 0-9
+							let rInt = /^[0-9]+$/;
+							// Name must start with any letter a-z upper or lower case or an under score and may also have digit anywhere except at the beginning.
+							// Name may have a-z, A-Z, 0-9 and _. The first letter may not be _
+							let rName = /^[a-z|A-z|\_]+[a-z|A-Z|0-9|\_]*$/;///[a-z*|A-Z*|\_*]\d*/;
+
+							// A user-defined variable. e.g. x
+							let a = instruction[1].toString();
+							// A user-defined variable or a literal. e.g. 5 or $Hello
+							let b = instruction[2].toString();
+
+							// If supplied variable name only has alphanumeric characters and supplied value is only a digit (as opposed to letters)
+							if (rName.test(a))
+							{
+								// Only create variable with that name if it hasn't been created before
+								if (this.UVV.has(a) != true)
+								{
+									if (rInt.test(b))
+									{
+										// Store int name and value in map
+										this.UVV.set(a, b);
+										// Store int name with associated type in map
+										this.UVT.set(a, "INT");
+									}
+									else
+									{
+										if (this.dev) {console.warn("Supplied variable value " + b + " is invalid.\n")};
+									}
+								}
+								// Variable with that name already exists
+								else
+								{
+									if (this.dev) {console.warn("Variable " + a + " already exists.\n")};
+								}
+							}
+							// Variable name is invalid
+							else
+							{
+								if (this.dev) {console.warn("Supplied variable name " + a + " is invalid.\n")};
+							}
+							this.movePC(1);
+						}
+						break;
+					case "FLOAT":
+						{
+							// Int must only contain digits from 0-9
+							let rInt = /^[0-9]+$/;
+							// Float may contain one of three where d is any number of digits and . the decimal point.
+							// d.d OR .d OR d    So one could assign numbers like these to a float.
+							// 3.1415 .5 5 50.45
+							let rFloat = /([0-9]+\.{1}[0-9]+|\.{1}[0-9]+|[0-9]+)/;
+							// Name must start with any letter a-z upper or lower case or an under score and may also have digit anywhere except at the beginning.
+							// Name may have a-z, A-Z, 0-9 and _. The first letter may not be _
+							let rName = /^[a-z|A-z|\_]+[a-z|A-Z|0-9|\_]*$/;///[a-z*|A-Z*|\_*]\d*/;
+
+							// A user-defined variable. e.g. x
+							let a = instruction[1].toString();
+							// A user-defined variable or a literal. e.g. 5 or $Hello
+							let b = instruction[2].toString();
+
+							// If supplied variable name only has alphanumeric characters
+							if (rName.test(a))
+							{
+								// Only create variable with that name if it hasn't been created before
+								if (this.UVV.has(a) != true)
+								{
+									// Check if supplied value is a float
+									if (rFloat.test(b))
+									{
+										// Store float name and value in map
+										this.UVV.set(a, b);
+										// Store float name with associated type in map
+										this.UVT.set(a, "FLOAT");
+									}
+									else
+									{
+										if (this.dev) {console.warn("Supplied variable value " + b + " is invalid.\n")};
+									}
+								}
+								// Variable with that name already exists
+								else
+								{
+									if (this.dev) {console.warn("Variable " + a + " already exists.\n")};
+								}
+							}
+							// Variable name is invalid
+							else
+							{
+								if (this.dev) {console.warn("Supplied variable name " + a + " is invalid.\n")};
+							}
+							this.movePC(1);
+						}
+						break;
+					case "SET":
+						{
+							// Int must only contain digits from 0-9
+							let rInt = /^[0-9]+$/;
+							// Float may contain one of three where d is any number of digits and . the decimal point.
+							// d.d OR .d OR d    So one could assign numbers like these to a float.
+							// 3.1415 .5 5 50.45
+							let rFloat = /([0-9]+\.{1}[0-9]+|\.{1}[0-9]+|[0-9]+)/;
+							// Name must start with any letter a-z upper or lower case or an under score and may also have digit anywhere except at the beginning.
+							// Name may have a-z, A-Z, 0-9 and _. The first letter may not be _
+							let rName = /^[a-z|A-z|\_]+[a-z|A-Z|0-9|\_]*$/;///[a-z*|A-Z*|\_*]\d*/;
+
+							// A user-defined variable. e.g. x
+							let a = instruction[1].toString();
+							// A user-defined variable or a literal. e.g. 5 or $Hello
+							let b = instruction[2].toString();
+							// a is a user-defined variable
+							if (this.UVV.has(a))
+							{
+								/* b is a user-defined variable */
+								if (this.UVV.has(b))
+								{
+									// Set a to value of b only if their types match.
+									if (this.UVT.get(a) == this.UVT.get(b))
+									{
+										this.UVV.set(a, this.UVV.get(b))
+									}
+									// Their types don't match so try automatic/implicit conversion.
+									else
+									{
+										// a is of type INT.
+										if (this.UVT.get(a) == "INT")
+										{
+											// b is of type FLOAT.
+											if (this.UVT.get(b) == "FLOAT")
+											{
+												// Set a to value of b floored.
+												this.UVV.set(a, Math.floor(parseFloat(this.UVV.get(b))));
+											}
+											// Automatic conversion from "STRING" to INT or FLOAT is not allowed. Like in C++. See more types in the GitHub Wiki.
+										}
+										// a is of type FLOAT
+										else if (this.UVT.get(a) == "FLOAT")
+										{
+											// b is of type INT
+											if (this.UVT.get(b) == "INT")
+											{
+												// Unsure if value should be stored with decimal point and 0.
+												// So if b is 3 a should become 3.0 instead of 3 to signal to the user that it is a float.
+												// Set a to value of b.
+												this.UVV.set(a, this.UVV.get(b));
+											}
+										}
+										// a is of type STRING.
+										else if (this.UVT.get(a) == "STRING")
+										{
+											// Set a to value of b.
+											this.UVV.set(a, this.UVV.get(b).toString());
+										}
+										/* Implicit conversion failed. */
+										else
+										{
+											if (this.dev) { console.warn("Implicit conversion from " + b + " to " + a + " failed.\n") };
+										}
+									}
+								}
+								/* b is a literal */
+								else
+								{
+									// a is of type INT.
+									if (this.UVT.get(a) == "INT")
+									{
+										// b is of type FLOAT.
+										if (rFloat.test(b))
+										{
+											// Set a to value of b floored.
+											this.UVV.set(a, Math.floor(parseFloat(b)));
+										}
+										// Automatic conversion from "STRING" to INT or FLOAT is not allowed. Like in C++. See more types in the GitHub Wiki.
+									}
+									// a is of type FLOAT
+									else if (this.UVT.get(a) == "FLOAT")
+									{
+										// b is of type INT
+										if (rInt.test(b))
 										{
 											// Unsure if value should be stored with decimal point and 0.
 											// So if b is 3 a should become 3.0 instead of 3 to signal to the user that it is a float.
 											// Set a to value of b.
-											this.UVV.set(a, this.UVV.get(b));
+											this.UVV.set(a, b);
 										}
 									}
 									// a is of type STRING.
 									else if (this.UVT.get(a) == "STRING")
 									{
 										// Set a to value of b.
-										this.UVV.set(a, this.UVV.get(b).toString());
+										this.UVV.set(a, b.toString());
 									}
 									/* Implicit conversion failed. */
 									else
@@ -558,103 +1085,212 @@ class LeoInterpreter
 									}
 								}
 							}
-							/* b is a literal */
+							/* a is not a user-defined variable */
 							else
 							{
-								// a is of type INT.
-								if (this.UVT.get(a) == "INT")
+								if (this.dev) { console.warn("Variable " + a + " doesn't exist.\n") };
+							}
+							this.movePC(1);
+						}
+						break;
+					case "PRINT":
+						{
+							// Only parse second part of instruction if it exists
+							if (instruction[1])
+							{
+								let success = false;
+								let uds = instruction[1].toString();
+
+								let s;
+								// It's a literal string
+								if (uds[0] == "$")
 								{
-									// b is of type FLOAT.
-									if (rFloat.test(b))
-									{
-										// Set a to value of b floored.
-										this.UVV.set(a, Math.floor(parseFloat(b)));
-									}
-									// Automatic conversion from "STRING" to INT or FLOAT is not allowed. Like in C++. See more types in the GitHub Wiki.
+									// Remove first char
+									s = uds.substring(1);
+									success = true;
 								}
-								// a is of type FLOAT
-								else if (this.UVT.get(a) == "FLOAT")
+								// It's a user-defined variable
+								else if (this.UVV.has(uds))
 								{
-									// b is of type INT
-									if (rInt.test(b))
-									{
-										// Unsure if value should be stored with decimal point and 0.
-										// So if b is 3 a should become 3.0 instead of 3 to signal to the user that it is a float.
-										// Set a to value of b.
-										this.UVV.set(a, b);
-									}
+									s = this.UVV.get(uds);
+									success = true;
 								}
-								// a is of type STRING.
-								else if (this.UVT.get(a) == "STRING")
-								{
-									// Set a to value of b.
-									this.UVV.set(a, b.toString());
-								}
-								/* Implicit conversion failed. */
 								else
 								{
-									if (this.dev) { console.warn("Implicit conversion from " + b + " to " + a + " failed.\n") };
+									success = false;
+								}
+
+
+								if (success)
+								{
+									this.console += s;
+									console.log("Wrote " + s + " to the console.\n");
+
+									let text = this.console;
+									// Replace all occurrences of "\n" with "\r\n". Don't replace any "\n" that are preceded by "\". So don't replace "\\n"
+									text = text.replace(/(?<!\\)\\n/g, "\r\n"); //&#013;&#010; \r\n
+									// Replace all escaped "\n" with "\n". So "\\n" becomes "\n".
+									// The first "\" in the replace functions escapes the second "\" before the "n".
+									text = text.replace(/\\\\n/g, "\\n");
+									textoutput.value = text;
+								}
+								else
+								{
+									if (this.dev)
+									{
+										console.warn("Supplied value is not a variable nor a valid string.\n");
+									}
+								}
+							}
+							else
+							{
+								if (this.dev)
+								{
+									console.warn("No variable or string supplied.\n");
+								}
+							}
+
+							this.movePC(1);
+						}
+						break;
+					case "CLS":
+						{
+							this.console = "";
+							if (this.dev) { console.log("Cleared the screen.\n")};
+						}
+						break;
+					case "GOTO":
+						{
+							if (instruction[1])
+							{
+								let a = instruction[1].toString();
+								if (this.UFV.has(a))
+								{
+									// Push name of function that will now be executed onto the stack.
+									this.S.push(a);
+									// Push current address onto address stack.
+									this.A.push(this.PC);
+
+									// Jump to declaration of instruction. The movePC call below makes the PC jump to the first line of the function.
+									this.PC = parseInt(this.UFV.get(a));
+									console.log("this.S " + this.S);
+								}
+								else
+								{
+									if (this.dev)
+									{
+										console.warn("No function with name " + a + " declared.\n");
+									}
+									this.movePC(1);
+								}
+							}
+							else
+							{
+								if (this.dev)
+								{
+									console.warn("No function name supplied at line " + this.PC + ".\n");
+								}
+								this.movePC(1);
+							}
+						}
+						break;
+					case "FUNC":
+						{
+							// Name may have a-z, A-Z, 0-9 and _. The first letter may not be a digit
+							let rName = /^[a-z|A-z|\_]+[a-z|A-Z|0-9|\_]*$/;
+
+							if (instruction[1])
+							{
+								let a = instruction[1].toString();
+
+								// If supplied function name is valid
+								if (rName.test(a))
+								{
+									this.UFV.set(a, this.PC);
+								}
+
+								// Only execute this function if the top-most memory address on the stack contains this function's name.
+								if (this.S[this.S.length-1] == a)
+								{
+									// Go to first line of function code
+									this.movePC(1);
+								}
+								// Otherwise go to the next line until you are below a ";" which marks the end of this function definition.
+								// From there on execute as usual.
+								else
+								{
+									let success = false;
+									for (let i = this.PC; i < this.programEndAddress, success == false; i++)
+									{
+										let instruction = this.tokenize(this.memory[i]);
+										if (instruction[0] == ";")
+										{
+											this.PC = i;
+											console.log("Found end of function.\n\n\n\n");
+											success = true;
+										}
+									}
+								}
+							}
+							// No function name supplied
+							else
+							{
+								// Go to the next line until you are below a ";" which marks the end of this function definition.
+								// From there on execute as usual.
+								let success = false;
+								for (let i = this.PC; i < this.programEndAddress, success == false; i++)
+								{
+									let instruction = this.tokenize(this.memory[this.PC]);
+									if (instruction[0] == ";")
+									{
+										this.PC = i;
+										// Go to next line. Call movePC so that any out of bounds errors get handled.
+										this.movePC(1);
+										console.log("Found end of function.\n\n\n\n");
+										success = true;
+									}
+								}
+								// Program Counter is out of bounds as no ";" was encountered.
+								if (success = false)
+								{
+									// Let movePC function handle the out of bounds PC error
+									this.movePC(1);
+									if (this.dev)
+									{
+										console.warn("End of function not found.\n");
+										console.warn("PC out of bounds.\n");
+									}
 								}
 							}
 						}
-						/* a is not a user-defined variable */
-						else
+						break;
+					case ";":
 						{
-							if (this.dev) { console.warn("Variable " + a + " doesn't exist.\n") };
+							if (this.S.length > 0)
+							{
+								// Go back to where you called the function and move to the next line.
+								this.PC = this.A.pop()+1;
+							}
+							else
+							{
+								if (this.dev)
+								{
+									console.warn("No function to return from.\n");
+								}
+								this.movePC(1);
+							}
 						}
-						this.movePC(1);
-					}
-					break;
-				case "PRINT":
-					{
-						let uds = instruction[1].toString();
-						let s;
-						// It's a literal string
-						if (uds[0] == "$")
-						{
-							// Remove first char
-							s = uds.substring(1);
-						}
-						// It's a user-defined variable
-						else if (this.UVV.has(uds))
-						{
-							s = this.UVV.get(uds);
-						}
-
-						this.console += s;
-						console.log("Wrote " + s + " to the console.\n");
-						/*
-						else
-						{
-						}
-						*/
-
-						let text = this.console;
-						// Replace all occurrences of "\n" with "\r\n". Don't replace any "\n" that are preceded by "\". So don't replace "\\n"
-						text = text.replace(/(?<!\\)\\n/g, "\r\n"); //&#013;&#010; \r\n
-						// Replace all escaped "\n" with "\n". So "\\n" becomes "\n".
-						// The first "\" in the replace functions escapes the second "\" before the "n".
-						text = text.replace(/\\\\n/g, "\\n");
-						textoutput.value = text;
-						this.movePC(1);
-					}
-					break;
-				case "CLS":
-					{
-						this.console = "";
-						if (this.dev) { console.log("Cleared the screen.\n")};
-					}
-					break;
-				case "GOTO":
-					{
-					}
-					break;
-				case "FUNC":
-					{
-					}
-					break;
-				default:
-					break;
+					default:
+						break;
+				}
+			}
+			else
+			{
+				if (this.dev)
+				{
+					console.log("Line is 0.\n");
+				}
+				this.movePC(1);
 			}
 			cycles--;
 		}
@@ -773,6 +1409,12 @@ class LeoInterpreter
 		this.UVV = new Map();
 		// User-defined variable names and their type, such as "INT" or later "STRING" and "FLOAT"
 		this.UVT = new Map();
+		// User-defined functions and their start address.
+		this.UFV = new Map();
+		// The name stack. This gets the name of the function that will get executed by a GOTO statement pushed onto it.
+		this.S = new Array();
+		// The address stack. Whenever the PC encounter the GOTO's a function, the current PC will be pushed onto this stack.
+		this.A = new Array();
 		//this.UV = [];
 		this.PC = 0;
 		this.programStartAddress = 0;

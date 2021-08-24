@@ -43,6 +43,10 @@ textarea
 	height: 50vh;
 	/* This only displayes the text as uppercase. Upon copying it is still in the form the user has input it. */
 	/* text-transform: uppercase; */
+	/* Set tab size to 4 letters here as an event listener in scripts.js inserts a "\t" when the user presses tab inside the text editor.
+	 * That tab is 8 letters long.
+	 */
+	tab-size: 4;
 }
 
 #textoutput
