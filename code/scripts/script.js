@@ -50,6 +50,50 @@ window.addEventListener("load", function()
 				this.selectionEnd = start + 1;
 			}
 		});
+
+		// Get the number of lines in texteditor
+		texteditor.addEventListener("keyup", function (e)
+		{
+			// Save current height and let browser adjust texteditor height to fit any lines.
+			let te0 = texteditor.style.height;
+			texteditor.style.height = "auto";
+
+			// Get height for lines
+			let teLineHeight = 16;
+			let teScrollHeight = texteditor.scrollHeight;
+
+			// Restore original height
+			let te1 = texteditor.scrollHeight;
+			texteditor.style.height = te0;
+
+			let numLines = Math.floor(teScrollHeight / teLineHeight);
+			console.log("Num of lines: " + numLines + ".\n");
+			console.log("texteditor.scrollHeight: " + texteditor.scrollHeight + ".\n");
+			let linenumber = document.getElementById("linenumber");
+
+			let s = "";
+			for (let i = 0; i < numLines; i++)
+			{
+				s += i + "\n";
+			}
+
+			if (s != undefined)
+			{
+				linenumber.value = s;
+			}
+			/*
+			let lineNumberInsert = document.getElementById("linenumberinsert");
+			lineNumberInsert.innerHTML = "";
+			// Append divs for each line number
+			for (let i = 0; i < numLines; i++)
+			{
+				let div = document.createElement("div");
+				let text = document.createTextNode((i+1).toString());
+				div.appendChild(text);
+				lineNumberInsert.appendChild(div);
+			}
+			*/
+		});
 	}
 });
 
@@ -294,12 +338,6 @@ class LeoInterpreter
 
 		// Show column names
 		this.addMessage("Type", "Line", "Description");
-		// INSTRUCTION -> KEYWORD VARIABLE|VALUE VARIABLE|VALUE|NONE
-		// KEYWORD -> ADD | SUB | MUL | DIV | INT | SET | PRINT | CLS | GOTO | FUNC
-		// VARIABLE -> NAME + VALUE + TYPE
-		// NAME -> 
-		//console.log(this.test);
-		//this.instruction.set(/(i)[add]\s*\w*\,\s*/, "ADD");
 	}
 
 	execute(cycles)
