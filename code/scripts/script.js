@@ -14,6 +14,8 @@ const SCREEN_HEIGHT = 720;
 
 let texteditor = document.getElementById("texteditor");
 let textoutput = document.getElementById("textoutput");
+let errorlist = document.getElementById("errorlist");
+let errorlistInsert = document.getElementById("errorinsert");
 let runcode = document.getElementById("runcode");
 
 // Wait for the document to be completely loaded before attaching any event listeners to the HTML elements. */
@@ -282,6 +284,10 @@ class LeoInterpreter
 		this.programEndAddress = 0;
 		// The output string of the interpreter.
 		this.console = new String();
+		// This shows any syntax errors. Like in Visual Studio
+		this.errorlist = new Array();
+		// A list containing any syntax errors regarding the user's code.
+		this.errorlist = new Array();
 		this.tokenDefinition = new Map();
 		this.tokenDefinition.set();
 		this.tokenDefinition = ["ADD", /\[s]+/,
@@ -1180,6 +1186,8 @@ class LeoInterpreter
 									if (this.dev)
 									{
 										console.warn("No function with name " + a + " declared.\n");
+										let desc = "No function with name " + a + " declared.";
+										this.addError("Warning", this.PC, desc);
 									}
 									this.movePC(1);
 								}
@@ -1226,6 +1234,7 @@ class LeoInterpreter
 										if (instruction[0] == ";")
 										{
 											this.PC = i;
+											this.movePC(1);
 											console.log("Found end of function.\n\n\n\n");
 											success = true;
 										}
@@ -1241,6 +1250,7 @@ class LeoInterpreter
 								for (let i = this.PC; i < this.programEndAddress, success == false; i++)
 								{
 									let instruction = this.tokenize(this.memory[this.PC]);
+									// Encountered end of function
 									if (instruction[0] == ";")
 									{
 										this.PC = i;
@@ -1254,12 +1264,14 @@ class LeoInterpreter
 								if (success = false)
 								{
 									// Let movePC function handle the out of bounds PC error
-									this.movePC(1);
+									//this.movePC(1);
+									/*
 									if (this.dev)
 									{
 										console.warn("End of function not found.\n");
 										console.warn("PC out of bounds.\n");
 									}
+									*/
 								}
 							}
 						}
@@ -1270,6 +1282,11 @@ class LeoInterpreter
 							{
 								// Go back to where you called the function and move to the next line.
 								this.PC = this.A.pop()+1;
+								this.S.pop();
+								if (this.dev)
+								{
+									console.log("Found end of function.\n");
+								}
 							}
 							else
 							{
@@ -1280,7 +1297,15 @@ class LeoInterpreter
 								this.movePC(1);
 							}
 						}
+						break;
 					default:
+						{
+							this.movePC(1);
+							if (this.dev)
+							{
+								console.log("Instruction " + instruction + " unknown.\n");
+							}
+						}
 						break;
 				}
 			}
@@ -1322,6 +1347,30 @@ class LeoInterpreter
 		*/
 	}
 
+	// This adds an error to the error list.
+	addError(type, line, desc)
+	{
+		let tempText;
+
+		// Insert new row at bottom of table
+		let newRow = errorlistInsert.insertRow(-1);
+
+		// Create Type cell
+		let cellType = newRow.insertCell(0);
+		tempText = document.createTextNode(type);
+		cellType.appendChild(tempText);
+
+		// Create Line cell
+		let cellLine = newRow.insertCell(1);
+		tempText = document.createTextNode(line);
+		cellLine.appendChild(tempText);
+
+		// Create Description cell
+		let cellDesc = newRow.insertCell(2);
+		tempText = document.createTextNode(desc);
+		cellDesc.appendChild(tempText);
+	}
+
 	parse()
 	{
 	}
@@ -1356,18 +1405,13 @@ class LeoInterpreter
 		// Create array of lines
 		let line = s.split("\n");
 
-		// Remove empty lines or lines that have white space or that have white space followed by //
-		// So this will not remove "  int x, 5 // A comment"
-		for (let i = 0; i < line.length; i++)
-		{
-			// If lines is empty or starts with any number of whitespace followed by //
-			let commentRegExp = /^[\s|\/]*\/{2}.*/;///[\s]*\/{2}.*/;
-			if (line[i] == null || line[i] == "" || commentRegExp.test(line[i]))
-			{
-				line.splice(i, 1);
-				i--;
-			}
-		}
+		/*
+		 * 
+		 * This is disabled for now, as the parser otherwise displays the wrong line numbers for errors and warnings.
+		 * So this code is currently being used in the parser. (The giant switch statement.)
+		 * 
+		 */
+		//line = this.hRemoveEmptyLines(line);
 
 		// Copy lines into memory. One line per memory address
 		for (let i = 0; i < line.length; i++)
@@ -1394,6 +1438,24 @@ class LeoInterpreter
 				}
 			}
 		}
+	}
+
+	hRemoveEmptyLines(line)
+	{
+		// Remove empty lines or lines that have white space or that have white space followed by //
+		// So this will not remove "  int x, 5 // A comment"
+		for (let i = 0; i < line.length; i++)
+		{
+			// If lines is empty or starts with any number of whitespace followed by //
+			let commentRegExp = /^[\s|\/]*\/{2}.*/;///[\s]*\/{2}.*/;
+			if (line[i] == null || line[i] == "" || commentRegExp.test(line[i]))
+			{
+				line.splice(i, 1);
+				i--;
+			}
+		}
+
+		return line;
 	}
 
 	reset()

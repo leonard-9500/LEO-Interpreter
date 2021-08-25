@@ -7,9 +7,15 @@
  * Version: 0.0.0.0
 */
 
+:root
+{
+	--border-color: #888888;
+}
+
 body
 {
-	width: 100%;
+	font: 12px sans-serif;
+	width: 100vw;
 	height: 100vh;
 	box-sizing: border-box;
 	margin: 0;
@@ -28,9 +34,9 @@ textarea
 	/* font-weight: bold; */
 	resize: none;
 	background-color: #222222;
-	border: 0px;
-	margin: 0px;
-	padding: 0px;
+	border: 0;
+	margin: 0;
+	padding: 0;
 	color: white;
 	outline: none;
 }
@@ -41,7 +47,7 @@ textarea
 	grid-row: 1;
 	width: 50vw;
 	height: 50vh;
-	/* This only displayes the text as uppercase. Upon copying it is still in the form the user has input it. */
+	/* This only displays the text as uppercase. Upon copying it is still in the form the user has input it. */
 	/* text-transform: uppercase; */
 	/* Set tab size to 4 letters here as an event listener in scripts.js inserts a "\t" when the user presses tab inside the text editor.
 	 * That tab is 8 letters long.
@@ -55,4 +61,74 @@ textarea
 	grid-row: 1;
 	width: 50vw;
 	height: 50vh;
+}
+
+#runcode
+{
+	grid-column: 1;
+	grid-row: 2;
+	width: 50vw;
+	height: 50vh;
+}
+
+#errorlist
+{
+	grid-column: 2;
+	grid-row: 2;
+	table-layout: fixed;
+	border-collapse: collapse;
+	background-color: #222222;
+	border: 0;
+	margin: 0;
+	padding: 0;
+	color: white;
+	outline: none;
+	width: 50vw;
+	height: 50vh;
+}
+
+#errorlist th tr
+{
+}
+
+#errorlist thead th
+{
+	border-bottom: 1px solid #888888;
+	line-height: 16px;
+	height: 8px;
+	text-align: left;
+}
+
+#errorlist tbody tr
+{
+	line-height: 16px;
+	height: 8px;
+}
+
+#errorlist #title
+{
+	background-color: #222222;
+	border: 0;
+	margin: 0;
+	padding: 0;
+	color: white;
+}
+
+#errorlist #type
+{
+	width: 20%;
+	color: #ff8800;
+}
+#errorlist #line
+{
+	width: 10%;
+}
+#errorlist #desc
+{
+	width: 70%;
+}
+
+#errorlist tbody tr:nth-child(even)
+{
+	background-color: #333333;
 }

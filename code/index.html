@@ -8,6 +8,18 @@
 <body>
 	<textarea id="texteditor" placeholder="Code..."></textarea>
 	<textarea id="textoutput" placeholder="" readonly="readonly"></textarea>
+	<table id="errorlist">
+		<caption id="title">Error List</caption>
+		<thead>
+			<tr>
+				<th id="type">Type</th>
+				<th id="line">Line</th>
+				<th id="desc">Description</th>
+			</tr>
+		</thead>
+		<tbody id="errorinsert">
+		</tbody>
+	</table>
 	<button id="runcode" type="button">Run code</button>
 	<script src="scripts/script.js"></script>
 </body>
