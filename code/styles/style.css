@@ -71,6 +71,17 @@ textarea
 	height: 50vh;
 }
 
+#messagebox
+{
+	grid-column: 2;
+	grid-row: 2;
+	width: 50vw;
+	height: 50vh;
+}
+
+
+
+/*
 #errorlist
 {
 	grid-column: 2;
@@ -132,3 +143,4 @@ textarea
 {
 	background-color: #333333;
 }
+*/

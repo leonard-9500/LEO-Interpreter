@@ -14,7 +14,7 @@ const SCREEN_HEIGHT = 720;
 
 let texteditor = document.getElementById("texteditor");
 let textoutput = document.getElementById("textoutput");
-let errorlist = document.getElementById("errorlist");
+let messagebox = document.getElementById("messagebox");
 let errorlistInsert = document.getElementById("errorinsert");
 let runcode = document.getElementById("runcode");
 
@@ -285,31 +285,20 @@ class LeoInterpreter
 		// The output string of the interpreter.
 		this.console = new String();
 		// This shows any syntax errors. Like in Visual Studio
-		this.errorlist = new Array();
-		// A list containing any syntax errors regarding the user's code.
-		this.errorlist = new Array();
-		this.tokenDefinition = new Map();
-		this.tokenDefinition.set();
-		this.tokenDefinition = ["ADD", /\[s]+/,
-						 "SUB",
-						 "MUL",
-						 "DIV",
-						 "INT", function(varName, varVal) { this.UV.set(varName, varVal) },
-						 "SET",
-						 "PRINT",
-						 "CLS",
-						 "GOTO",
-						 "FUNC",
-						 "//", "/\s*\/{2}/",
-						 ";"];
-		this.test = ["ADD", "INT"||"FLOAT"||"STRING"];
-		this.rules = {"I" : ["K", "W", ""]};
+		this.messagebox = new String();
+		this.messageTypeColor = new Map();
+		// Define the colors associated with each type of message. From neutral to severe.
+		this.messageTypeColor.set("info", "#222222"); // dark grey
+		this.messageTypeColor.set("warning", "#fff480"); // yellow
+		this.messageTypeColor.set("error", "#ff5029"); // red
+
+		// Show column names
+		this.addMessage("Type", "Line", "Description");
 		// INSTRUCTION -> KEYWORD VARIABLE|VALUE VARIABLE|VALUE|NONE
 		// KEYWORD -> ADD | SUB | MUL | DIV | INT | SET | PRINT | CLS | GOTO | FUNC
 		// VARIABLE -> NAME + VALUE + TYPE
 		// NAME -> 
 		//console.log(this.test);
-		this.instruction = new Map();
 		//this.instruction.set(/(i)[add]\s*\w*\,\s*/, "ADD");
 	}
 
@@ -1187,7 +1176,7 @@ class LeoInterpreter
 									{
 										console.warn("No function with name " + a + " declared.\n");
 										let desc = "No function with name " + a + " declared.";
-										this.addError("Warning", this.PC, desc);
+										this.addMessage("warning", this.PC, desc);
 									}
 									this.movePC(1);
 								}
@@ -1330,21 +1319,16 @@ class LeoInterpreter
 			if (this.dev) { console.log("Program Counter out of bounds.\n"); };
 			this.isExecuting = false;
 		}
-		/*
-		if (this.PC+n < this.programEndAddress)
-		{
-			this.PC += n;
-		}
-		else if (this.PC+n == this.programEndAddress)
-		{
-			this.PC == this.programEndAddress;
-		}
-		// The last line of code has been executed.
-		else if (this.PC == this.programEndAddress)
-		{
-			this.isExecuting = false;
-		}
-		*/
+	}
+
+	addMessage(type, line, desc)
+	{
+		let s = "";
+		s += type.toString().padEnd(8, " ") + " ";
+		s += line.toString().padStart(4, " ") + " ";
+		s += desc.toString().padStart(1, " ") + "\n";
+		this.messagebox += s;
+		messagebox.value = this.messagebox;
 	}
 
 	// This adds an error to the error list.
@@ -1483,6 +1467,15 @@ class LeoInterpreter
 		this.programEndAddress = 0;
 		// The output string of the interpreter.
 		this.console = new String();
+		// This shows any syntax errors. Like in Visual Studio
+		this.messagebox = new String();
+		this.messageTypeColor = new Map();
+		// Define the colors associated with each type of message. From neutral to severe.
+		this.messageTypeColor.set("info", "#222222"); // dark grey
+		this.messageTypeColor.set("warning", "#fff480"); // yellow
+		this.messageTypeColor.set("error", "#ff5029"); // red
+
+		this.addMessage("Type", "Line", "Description");
 	}
 }
 
@@ -1496,14 +1489,6 @@ function getRandomIntInclusive(min, max)
 }
 
 let code = "";
-code += '// Test Program\n';
-code += '  int x 4	 // An indented comment\n';
-code += 'print $Hello World!\n';
-code += 'add x 1\n';
-code += 'print x\n';
-code += 'int y 5\n';
-code += 'add x y\n';
-code += 'print x\n';
 let interpreter = new LeoInterpreter;
 //interpreter.load(texteditor.value);
 //interpreter.execute(6);
