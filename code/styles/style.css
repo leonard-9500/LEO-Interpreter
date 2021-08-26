@@ -124,6 +124,8 @@ textarea
 
 #texteditor
 {
+	height: 100%;
+	overflow: auto;
 	grid-column: 2;
 	border: 0;
 	margin: 0;

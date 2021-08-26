@@ -21,6 +21,13 @@ let runcode = document.getElementById("runcode");
 // Wait for the document to be completely loaded before attaching any event listeners to the HTML elements. */
 window.addEventListener("load", function()
 {
+
+	document.addEventListener("keydown", function (e)
+	{
+		// Stop program execution when user presses pause/break key.
+		if (e.code == "Pause") {interpreter.isExecuting = false;};
+	}, false);
+
 	console.log("Page has been fully loaded.\n");
 	if (runcode)
 	{
@@ -305,7 +312,7 @@ class LeoInterpreter
 {
 	constructor()
 	{
-		this.dev = true;
+		this.dev = false;
 		this.isExecuting = false;
 		// The memory that holds all instructions
 		this.memory = new Array(256).fill(0);
@@ -356,7 +363,7 @@ class LeoInterpreter
 				let instruction = this.tokenize(this.memory[this.PC]);
 
 				let token = instruction[0];
-				console.log(token);
+				if (this.dev) {console.log(token);};
 
 				switch(token.toUpperCase())
 				{
@@ -925,6 +932,10 @@ class LeoInterpreter
 							// Name must start with any letter a-z upper or lower case or an under score and may also have digit anywhere except at the beginning.
 							// Name may have a-z, A-Z, 0-9 and _. The first letter may not be _
 							let rName = /^[a-z|A-z|\_]+[a-z|A-Z|0-9|\_]*$/;///[a-z*|A-Z*|\_*]\d*/;
+							// Float may contain one of three where d is any number of digits and . the decimal point.
+							// d.d OR .d OR d    So one could assign numbers like these to a float.
+							// 3.1415 .5 5 50.45
+							let rFloat = /([0-9]+\.{1}[0-9]+|\.{1}[0-9]+|[0-9]+)/;
 
 							// A user-defined variable. e.g. x
 							let a = instruction[1].toString();
@@ -937,12 +948,42 @@ class LeoInterpreter
 								// Only create variable with that name if it hasn't been created before
 								if (this.UVV.has(a) != true)
 								{
-									if (rInt.test(b))
+									// b is a variable
+									if (this.UVV.has(b))
 									{
-										// Store int name and value in map
-										this.UVV.set(a, b);
+										let bVal = this.UVV.get(b);
+										if (this.UVT.get(b) == "INT")
+										{
+											// Store int name and value in map
+											this.UVV.set(a, parseInt(bVal));
+										}
+										else if (this.UVT.get(b) == "FLOAT")
+										{
+											// Store int name and value in map
+											this.UVV.set(a, Math.floor(parseFloat(bVal)));
+										}
+										else if (this.UVT.get(b) == "STRING")
+										{
+											if (this.dev)
+											{
+												console.log("Cannot implicitly convert " + bVal + " to INT.\n");
+												console.log(bVal + " is of type STRING.\n");
+											};
+										}
 										// Store int name with associated type in map
 										this.UVT.set(a, "INT");
+									}
+									// b is a float
+									else if (rFloat.test(b))
+									{
+										// Store int name and value in map
+										this.UVV.set(a, Math.floor(parseFloat(b)));
+									}
+									// b is an int
+									else if (rInt.test(b))
+									{
+										// Store int name and value in map
+										this.UVV.set(a, parseInt(b));
 									}
 									else
 									{
@@ -1157,7 +1198,7 @@ class LeoInterpreter
 								if (success)
 								{
 									this.console += s;
-									console.log("Wrote " + s + " to the console.\n");
+									if (this.dev) {console.log("Wrote " + s + " to the console.\n");};
 
 									let text = this.console;
 									// Replace all occurrences of "\n" with "\r\n". Don't replace any "\n" that are preceded by "\". So don't replace "\\n"
@@ -1166,6 +1207,9 @@ class LeoInterpreter
 									// The first "\" in the replace functions escapes the second "\" before the "n".
 									text = text.replace(/\\\\n/g, "\\n");
 									textoutput.value = text;
+
+									// Make console scroll to bottom of it's content.
+									textoutput.scrollTop = textoutput.scrollHeight;
 								}
 								else
 								{
@@ -1206,7 +1250,7 @@ class LeoInterpreter
 
 									// Jump to declaration of instruction. The movePC call below makes the PC jump to the first line of the function.
 									this.PC = parseInt(this.UFV.get(a));
-									console.log("this.S " + this.S);
+									if (this.dev) {console.log("this.S " + this.S);};
 								}
 								else
 								{
@@ -1399,26 +1443,9 @@ class LeoInterpreter
 
 	tokenize(line)
 	{
-		// Remove any "," and split according to white space.
-		//line = line.toString().replace(/\,/, "").split(/\s|\,/);
-		//line = line.toString().replace(/\,/, "").split(/\s|\,/);
-
-		// PRINT: Replace any whitespace followed by " or a-z or A-Z or _ with a comma
-		//line = line.toString().replace(/\s+[\"+|a-z|A-Z|\_]/, ",\"");
-		//line = line.toString().replace(/\s+[\"+|a-z|A-Z|\_]/, ",\"");
-		// Replace any whitespace with a " following with a comma. So print "Hello, World" becomes print,Hello, World"
-		//line = line.toString().replace(/\s+\"{1}/, ",");
-		//// Replace the second " with any white space following with nothing
-		//line = line.toString().replace(/\s+\"{1}/, "");
-		// Replace white space at end of line with nothing
-		//line = line.toString().replace(/\s+$/, "");
-		// Replace remaining white space that is before a comma with a comma.
-		// Split according to comma
-		//line = line.split(/\,/);
-
 		// Split at each whitespace that does not have a "$" preceding it. So "print $Hello, World!" becomes ["print", "$Hello, World!"]
 		line = line.toString().split(/(?<!\$(?:.*))\s+/);
-		console.log("Tokenized line to: " + line + "\n");
+		if (this.dev) {console.log("Tokenized line to: " + line + "\n");};
 		return line;
 	}
 
@@ -1482,7 +1509,7 @@ class LeoInterpreter
 
 	reset()
 	{
-		this.dev = true;
+		this.dev = false;
 		this.isExecuting = false;
 		// The memory that holds all instructions
 		this.memory = new Array(256).fill(0);
@@ -1528,6 +1555,8 @@ function getRandomIntInclusive(min, max)
 
 let code = "";
 let interpreter = new LeoInterpreter;
+interpreter.dev = true;
+console.log(interpreter.dev);
 //interpreter.load(texteditor.value);
 //interpreter.execute(6);
 
