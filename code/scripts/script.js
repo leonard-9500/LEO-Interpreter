@@ -1559,7 +1559,7 @@ interpreter.dev = true;
 console.log(interpreter.dev);
 //interpreter.load(texteditor.value);
 //interpreter.execute(6);
-
+// A test from visual studio code. See if git's working.
 // Time variables
 let tp1 = Date.now();
 let tp2 = Date.now();
